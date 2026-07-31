@@ -70,4 +70,9 @@ public enum StoreNode implements MemOpNode {
     public void export(IrGraph graph, int id, GraphBuilder builder) {
 
     }
+
+    @Override
+    public int getCost() {
+        return 4;
+    }
 }
