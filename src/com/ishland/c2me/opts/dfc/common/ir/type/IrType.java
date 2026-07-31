@@ -1,6 +1,6 @@
 package com.ishland.c2me.opts.dfc.common.ir.type;
 
-import com.google.common.base.Preconditions;
+import com.ishland.flowsched.util.Assertions;
 
 public abstract class IrType {
 
@@ -19,7 +19,7 @@ public abstract class IrType {
 
     /// Compute the OR of two types
     public final IrType meet(IrType another) {
-        Preconditions.checkArgument(another != null);
+        Assertions.assertTrue(another != null);
         if (this == another) {
             return this;
         }

@@ -1,6 +1,6 @@
 package com.ishland.c2me.opts.dfc.common.ir.type;
 
-import com.google.common.base.Preconditions;
+import com.ishland.flowsched.util.Assertions;
 
 public class DoubleType extends NumericType {
     public static final DoubleType TOP = new DoubleType(Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY);
@@ -17,12 +17,12 @@ public class DoubleType extends NumericType {
     }
 
     public static DoubleType constant(double value) {
-        Preconditions.checkArgument(Double.isFinite(value));
+        Assertions.assertTrue(Double.isFinite(value));
         return new DoubleType(value, value);
     }
 
     public static DoubleType range(double min, double max) {
-        Preconditions.checkArgument(Double.isFinite(min) && Double.isFinite(max) && min <= max);
+        Assertions.assertTrue(Double.isFinite(min) && Double.isFinite(max) && min <= max);
         return new DoubleType(min, max);
     }
 

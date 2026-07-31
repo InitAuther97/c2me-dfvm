@@ -1,6 +1,6 @@
 package com.ishland.c2me.opts.dfc.common.ir.type;
 
-import com.google.common.base.Preconditions;
+import com.ishland.flowsched.util.Assertions;
 import it.unimi.dsi.fastutil.objects.Reference2ByteLinkedOpenHashMap;
 
 public class TypeRegistry {
@@ -13,7 +13,7 @@ public class TypeRegistry {
 
     public static byte register(Class<? extends IrType> type) {
         synchronized (TYPES) {
-            Preconditions.checkState(!frozen, "Attempt to register type after registry is frozen");
+            Assertions.assertTrue(!frozen, "Attempt to register type after registry is frozen");
             final byte result = (byte) (TYPES.size() + 1);
             if (result < 0) {
                 throw new UnsupportedOperationException("Too many node types... are you serious?");
