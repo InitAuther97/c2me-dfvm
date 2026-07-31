@@ -22,9 +22,8 @@ public enum IfBranchNode implements EndBlockNode {
 
     @Override
     public IrType compute(IrGraph graph, int id, GraphContext ctx) {
-        final var operands = graph.getOperands(id);
-        final int upstream = operands.getInt(0);
-        final int cond = operands.getInt(1);
+        final int upstream = IrNode.control(graph, id);
+        final int cond = IrNode.data(graph, id, 0);
         final var upstreamType = ControlLike.getControl(graph.getType(upstream));
         final var condType = (BooleanType) graph.getType(cond);
         Assertions.assertTrue(condType.getData() != 0, "Boolean type is not yet determined");
@@ -43,9 +42,10 @@ public enum IfBranchNode implements EndBlockNode {
             return false;
         }
         // Replace downstream edges to above
-        final int originalOp = graph.getUsages(id).getInt(branch - 1);
-        final var upstream = graph.getOperands(id).getInt(0);
-        IrNode.transferDownstream(graph, originalOp, upstream, canonicalizer);
+        final var control = graph.getControl();
+        final int originalOp = control.getUsages(id).getInt(branch - 1);
+        final var upstream = control.getOperands(id).getInt(0);
+        IrNode.transferDownstream(control, originalOp, upstream, canonicalizer);
         // Now we're OK to be eliminated
         return true;
     }

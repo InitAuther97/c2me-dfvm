@@ -8,12 +8,13 @@ import com.ishland.c2me.opts.dfc.common.ir.graph.IrGraph;
 import com.ishland.c2me.opts.dfc.common.ir.graph.value.NodeState;
 import com.ishland.c2me.opts.dfc.common.ir.phase.scalar.Canonicalizer;
 import com.ishland.c2me.opts.dfc.common.ir.type.IrType;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+
+import java.util.logging.Logger;
+
 
 public interface IrNode {
 
-    Logger LOGGER = LoggerFactory.getLogger(IrNode.class);
+    Logger LOGGER = Logger.getLogger("IrNode");
 
     /**
      * Compute an initial type for a node
