@@ -1,0 +1,81 @@
+package com.ishland.c2me.opts.dfc.common.ir.phase.scalar;
+
+import com.ishland.c2me.opts.dfc.common.ir.GraphContext;
+import com.ishland.c2me.opts.dfc.common.ir.graph.RPOIterator;
+import com.ishland.c2me.opts.dfc.common.ir.graph.value.GraphUtil;
+import com.ishland.c2me.opts.dfc.common.ir.graph.IrGraph;
+import com.ishland.c2me.opts.dfc.common.ir.phase.HighTierPhase;
+import com.ishland.c2me.opts.dfc.common.ir.phase.MidTierPhase;
+import it.unimi.dsi.fastutil.ints.*;
+
+import java.util.Objects;
+
+public class GVN extends PostRunCanonicalizerPhase implements IntHash.Strategy, HighTierPhase, MidTierPhase {
+
+    private final IrGraph graph;
+    private final Int2IntMap globalMap = new Int2IntOpenCustomHashMap(this);
+
+    public GVN(GraphContext ctx) {
+        super(ctx);
+        this.graph = ctx.getIrGraph();
+        globalMap.defaultReturnValue(-1);
+    }
+
+    /**
+     * Run Global Value Numbering (GVN) on this graph. <br/>
+     * This phase utilizes a hash map of (incoming edges, node) and runs two
+     * kinds of numbering back and forth until no more node needs to be numbered. <br/>
+     * The graph is iterated in reverse post order: a node is processed after all
+     * of its predecessors. For every node met, try to find a replacement in the map.
+     * If a replacement exists, replace all usages of this node to that node. <br/>
+     */
+    @Override
+    public void run() {
+        final var edges = graph.getValue();
+        for (int i = 0; i < graph.countPrograms(); i++) {
+            final long program = graph.getProgramAt(i);
+            final int begin = (int) (program >>> 32);
+            final int end = (int) program;
+            final var rpo = new RPOIterator(edges, begin, end);
+            while (rpo.hasNext()) {
+                final int node = rpo.nextInt();
+                // Compute for a replacement
+                final int replacement = globalMap.putIfAbsent(node, node);
+                if (replacement == -1) {
+                    // We are not replaced
+                    continue;
+                }
+                final var value = graph.getValue();
+                // We're technically done for replacement calculation now
+                final var usages = value.getUsages(node);
+                // Do actual replacement
+                while (!usages.isEmpty()) {
+                    final int downstream = GraphUtil.getLast(usages);
+                    value.replaceEdge(downstream, node, replacement);
+                }
+                // Add to canonicalizer for dead code elimination
+                enqueue(node);
+            }
+        }
+    }
+
+    /// Hash strategy for node id
+    @Override
+    public int hashCode(int e) {
+        final var operands = graph.getValue().getOperands(e);
+        final var node = graph.getNode(e);
+        return 31 * operands.hashCode() + node.hash();
+    }
+
+    /// Equality strategy for node id
+    @Override
+    public boolean equals(int a, int b) {
+        if (a == b) return true;
+        final var operandsA = graph.getValue().getOperands(a);
+        final var operandsB = graph.getValue().getOperands(b);
+        final var nodeA = graph.getNode(a);
+        final var nodeB = graph.getNode(b);
+        return Objects.equals(operandsA, operandsB) && (nodeA == nodeB
+                || (nodeA.getClass() == nodeB.getClass() && nodeA.isEqual(nodeB)));
+    }
+}
