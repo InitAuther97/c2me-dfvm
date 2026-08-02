@@ -71,6 +71,7 @@ public class GCM implements MidTierPhase {
         if (cfg.isMergeBlock(index)) {
             schedLateOnMerge(stack, graph, scheduling, cfg, scheduledNodes, index, block);
         }
+        // Merge block can be the end block at the same time
         if (index == cfg.getEndBlock()) {
             schedLateOnReturn(stack, graph, scheduling, scheduledNodes, index, block);
         }
