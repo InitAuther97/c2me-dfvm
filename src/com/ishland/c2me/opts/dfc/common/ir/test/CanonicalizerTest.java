@@ -7,6 +7,7 @@ import com.ishland.c2me.opts.dfc.common.ir.test.framework.Assert;
 
 /// Verifies canonicalizer behavior: type propagation, constant folding,
 /// algebraic simplification and dead code elimination.
+@SuppressWarnings("unused")
 public class CanonicalizerTest {
 
     public void testConstantFolding() {

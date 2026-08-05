@@ -4,6 +4,7 @@ import com.ishland.c2me.opts.dfc.common.ir.type.IntegerType;
 import com.ishland.c2me.opts.dfc.common.ir.type.util.IntUtil;
 import com.ishland.c2me.opts.dfc.common.ir.test.framework.Assert;
 
+@SuppressWarnings("unused")
 public class IntUtilTest {
 
     public void testAdd() {

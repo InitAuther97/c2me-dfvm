@@ -4,6 +4,7 @@ import com.ishland.c2me.opts.dfc.common.ir.type.FloatType;
 import com.ishland.c2me.opts.dfc.common.ir.type.util.FloatUtil;
 import com.ishland.c2me.opts.dfc.common.ir.test.framework.Assert;
 
+@SuppressWarnings("unused")
 public class FloatUtilTest {
 
     public void testAdd() {

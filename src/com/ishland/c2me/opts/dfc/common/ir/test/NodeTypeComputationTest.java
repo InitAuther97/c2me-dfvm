@@ -7,6 +7,8 @@ import com.ishland.c2me.opts.dfc.common.ir.test.framework.Assert;
 
 /// Verifies that operator nodes compute their result type from the operand
 /// types stored in the graph, without involving the canonicalizer.
+
+@SuppressWarnings("unused")
 public class NodeTypeComputationTest {
 
     public void testIntAddConstants() {

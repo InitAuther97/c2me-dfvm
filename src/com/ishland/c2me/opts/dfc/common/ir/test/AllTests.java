@@ -7,7 +7,7 @@ public final class AllTests {
     private AllTests() {
     }
 
-    public static void main(String[] args) {
+    static void main() {
         final int failures = new TestRunner()
                 .register(IntUtilTest.class)
                 .register(DoubleUtilTest.class)

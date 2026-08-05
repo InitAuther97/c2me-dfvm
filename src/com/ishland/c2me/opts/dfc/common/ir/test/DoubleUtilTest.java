@@ -4,6 +4,7 @@ import com.ishland.c2me.opts.dfc.common.ir.type.DoubleType;
 import com.ishland.c2me.opts.dfc.common.ir.type.util.DoubleUtil;
 import com.ishland.c2me.opts.dfc.common.ir.test.framework.Assert;
 
+@SuppressWarnings("unused")
 public class DoubleUtilTest {
 
     public void testAdd() {
