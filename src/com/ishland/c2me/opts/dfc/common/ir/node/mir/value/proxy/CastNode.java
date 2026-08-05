@@ -20,7 +20,7 @@ public record CastNode(IrType target) implements ProxyNode {
     @Override
     public IrType compute(IrGraph graph, int id, GraphContext ctx) {
         final int operand = IrNode.data(graph, id, 0);
-        return ValueOpNode.verifyValue(graph.getType(operand).join(target));
+        return graph.getType(operand).join(target);
     }
 
     @Override

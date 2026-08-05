@@ -7,10 +7,13 @@ import com.ishland.flowsched.util.Assertions;
 import it.unimi.dsi.fastutil.objects.ReferenceArrayList;
 import it.unimi.dsi.fastutil.objects.ReferenceList;
 
+import java.util.BitSet;
+
 public class GraphContext {
     private final IrGraph node = new IrGraph();
     private final int start, end;
     private final ReferenceList<DataType> aliasMapping = new ReferenceArrayList<>();
+    private final BitSet enabledFeatures = new BitSet();
 
     public GraphContext() {
         this.start = this.node.addNode(ProgramNode.START);
@@ -38,5 +41,13 @@ public class GraphContext {
 
     public IrGraph getIrGraph() {
         return node;
+    }
+
+    public void toggleFeature(CompileFeature feature) {
+        enabledFeatures.set(feature.ordinal());
+    }
+
+    public boolean isFeatureEnabled(CompileFeature feature) {
+        return enabledFeatures.get(feature.ordinal());
     }
 }

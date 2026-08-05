@@ -9,6 +9,7 @@ import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.constant.IntConstantNo
 import com.ishland.c2me.opts.dfc.common.ir.phase.scalar.Canonicalizer;
 import com.ishland.c2me.opts.dfc.common.ir.type.IntegerType;
 import com.ishland.c2me.opts.dfc.common.ir.type.IrType;
+import com.ishland.c2me.opts.dfc.common.ir.type.util.IntUtil;
 
 public enum DivINode implements ValueOpNode, IntCommonOp {
     DIV_I;
@@ -23,14 +24,7 @@ public enum DivINode implements ValueOpNode, IntCommonOp {
         final var operands = graph.getValue().getOperands(id);
         final var left = (IntegerType) graph.getType(operands.getInt(0));
         final var right = (IntegerType) graph.getType(operands.getInt(1));
-        if (!left.isDetermined() || !right.isDetermined()) {
-            return IntegerType.TOP;
-        }
-        if (left.isConstant() && right.isConstant()) {
-            final int l = left.min(), r = right.min();
-            return IntegerType.constant(evaluate(l, r));
-        }
-        return IntegerType.BOT;
+        return IntUtil.div(left, right);
     }
 
     @Override

@@ -16,6 +16,14 @@ public class DoubleType extends NumericType {
         this.max = max;
     }
 
+    public double min() {
+        return min;
+    }
+
+    public double max() {
+        return max;
+    }
+
     public static DoubleType constant(double value) {
         Assertions.assertTrue(Double.isFinite(value));
         return new DoubleType(value, value);
@@ -40,7 +48,7 @@ public class DoubleType extends NumericType {
 
     @Override
     public boolean isDetermined() {
-        return min < max;
+        return min <= max;
     }
 
     @Override

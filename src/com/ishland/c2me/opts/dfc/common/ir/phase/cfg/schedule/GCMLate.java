@@ -1,4 +1,4 @@
-package com.ishland.c2me.opts.dfc.common.ir.phase.cfg;
+package com.ishland.c2me.opts.dfc.common.ir.phase.cfg.schedule;
 
 import com.ishland.c2me.opts.dfc.common.ir.GraphContext;
 import com.ishland.c2me.opts.dfc.common.ir.LongUtil;
@@ -7,7 +7,6 @@ import com.ishland.c2me.opts.dfc.common.ir.graph.EdgeList;
 import com.ishland.c2me.opts.dfc.common.ir.graph.IrGraph;
 import com.ishland.c2me.opts.dfc.common.ir.graph.cfg.CFGInfo;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.branch.PhiNode;
-import com.ishland.c2me.opts.dfc.common.ir.phase.MidTierPhase;
 import com.ishland.c2me.opts.dfc.common.util.FastCompareIntArrayList;
 import it.unimi.dsi.fastutil.ints.*;
 import it.unimi.dsi.fastutil.objects.Object2ReferenceOpenHashMap;
@@ -16,7 +15,7 @@ import it.unimi.dsi.fastutil.objects.ReferenceArrayList;
 import java.util.BitSet;
 
 // Phi is not touched in this stage because Phi is already pinned at Merge, which is an invariant.
-public class GCM implements MidTierPhase {
+public class GCMLate implements SchedulePhase {
 
     private static final ThreadLocal<Workspace> WORKSPACE_CACHE = ThreadLocal.withInitial(Workspace::new);
 
@@ -34,7 +33,7 @@ public class GCM implements MidTierPhase {
     private final Object2ReferenceOpenHashMap<IntArrayList, IntList> optoCache;
     private final BitSet scheduledNodes;
 
-    public GCM(GraphContext context) {
+    public GCMLate(GraphContext context) {
         this.context = context;
         final var workspace = WORKSPACE_CACHE.get();
         this.stack = workspace.list;

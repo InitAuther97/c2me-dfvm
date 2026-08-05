@@ -8,6 +8,7 @@ import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.ValueOpNode;
 import com.ishland.c2me.opts.dfc.common.ir.phase.scalar.Canonicalizer;
 import com.ishland.c2me.opts.dfc.common.ir.type.IntegerType;
 import com.ishland.c2me.opts.dfc.common.ir.type.IrType;
+import com.ishland.c2me.opts.dfc.common.ir.type.util.IntUtil;
 
 public enum MulINode implements ValueOpNode, IntAddMulCommonOp {
     MUL_I;
@@ -22,12 +23,7 @@ public enum MulINode implements ValueOpNode, IntAddMulCommonOp {
         final var operands = graph.getValue().getOperands(id);
         final var left = (IntegerType) graph.getType(operands.getInt(0));
         final var right = (IntegerType) graph.getType(operands.getInt(1));
-        final int lMin = left.min(), lMax = left.max(), rMin = right.min(), rMax = right.max();
-        final int ff = evaluate(lMin, rMin), fs = evaluate(lMin, rMax),
-                sf = evaluate(lMax, rMin), ss = evaluate(lMax, rMax);
-        final int min = Math.min(Math.min(ff, fs), Math.min(sf, ss));
-        final int max = Math.max(Math.max(ff, fs), Math.max(sf, ss));
-        return IntegerType.range(min, max);
+        return IntUtil.mul(left, right);
     }
 
     @Override
