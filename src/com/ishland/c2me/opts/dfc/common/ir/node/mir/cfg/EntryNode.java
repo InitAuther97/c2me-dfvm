@@ -7,6 +7,10 @@ import com.ishland.c2me.opts.dfc.common.ir.phase.scalar.Canonicalizer;
 import com.ishland.c2me.opts.dfc.common.ir.type.ControlType;
 import com.ishland.c2me.opts.dfc.common.ir.type.IrType;
 
+/// Entry point of a single program. {@link ProgramNode#START} points to at
+/// least one EntryNode; traversing down from an EntryNode always ends up in
+/// a single {@link ReturnNode} that post-dominates it. Part of the control
+/// spine: an EntryNode must never be eliminated (see Canonicalizer).
 public record EntryNode(String name) implements BeginBlockNode {
 
     @Override

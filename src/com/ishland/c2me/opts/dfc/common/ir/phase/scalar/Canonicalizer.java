@@ -5,6 +5,10 @@ import com.ishland.c2me.opts.dfc.common.ir.graph.EdgeAccessor;
 import com.ishland.c2me.opts.dfc.common.ir.graph.value.GraphUtil;
 import com.ishland.c2me.opts.dfc.common.ir.graph.IrGraph;
 import com.ishland.c2me.opts.dfc.common.ir.graph.value.NodeState;
+import com.ishland.c2me.opts.dfc.common.ir.node.IrNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.EntryNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.ProgramNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.ReturnNode;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntArrays;
 
@@ -51,7 +55,7 @@ public class Canonicalizer implements Runnable {
             list.add(element);
             return;
         }
-        final int index = IntArrays.binarySearch(list.elements(), 0, list.size() - 1, element);
+        final int index = IntArrays.binarySearch(list.elements(), 0, list.size(), element);
         if (index >= 0) return;
         list.add(-index - 1, element);
     }
@@ -64,6 +68,13 @@ public class Canonicalizer implements Runnable {
         remove(value, id, workQueue);
         remove(memory, id, workQueue);
         graph.removeNode(id);
+    }
+
+    /// The control spine of a graph (program start/end, entries and returns)
+    /// is structural: a valid graph always contains it, so it is never
+    /// subject to dead code elimination even when it has no usages.
+    private static boolean isControlSpine(IrNode node) {
+        return node instanceof ProgramNode || node instanceof EntryNode || node instanceof ReturnNode;
     }
 
     private static void remove(EdgeAccessor edge, int id, IntArrayList workQueue) {
@@ -85,15 +96,19 @@ public class Canonicalizer implements Runnable {
             for (int i = 0; i < workQueue.size(); ++i) {
                 int id = workQueue.getInt(i);
                 final var state = graph.get(id);
+                if (state == null) {
+                    // Node was already eliminated earlier in this run
+                    continue;
+                }
                 final var node = state.node();
                 // Fast path: node is already dead
-                if (graph.isOrphan(id)) {
+                if (graph.isOrphan(id) && !isControlSpine(node)) {
                     // Dead code elimination
                     deadCodeElim(graph, id, workQueue2);
                     continue;
                 }
                 // Step.1: compute type
-                final var type = node.compute(graph, i, context);
+                final var type = node.compute(graph, id, context);
                 if (type != null && !Objects.equals(type, state.type())) {
                     // Type changed. Propagate information to users.
                     graph.replaceNode(id, new NodeState(node, type));
@@ -105,7 +120,7 @@ public class Canonicalizer implements Runnable {
                     continue;
                 }
                 // Fast path: node is already dead
-                if (graph.isOrphan(id)) {
+                if (graph.isOrphan(id) && !isControlSpine(node)) {
                     deadCodeElim(graph, id, workQueue2);
                     continue;
                 }

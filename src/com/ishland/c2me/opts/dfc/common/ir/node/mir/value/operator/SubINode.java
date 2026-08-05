@@ -32,8 +32,8 @@ public enum SubINode implements ValueOpNode, IntCommonOp {
         final var edges = graph.getValue();
         final var operands = edges.getOperands(id);
         final int lhs = operands.getInt(0), rhs = operands.getInt(1);
-        final var lType = (IntegerType) graph.getNode(lhs);
-        final var rType = (IntegerType) graph.getNode(rhs);
+        final var lType = (IntegerType) graph.getType(lhs);
+        final var rType = (IntegerType) graph.getType(rhs);
         // Do constant folding
         if (rType.isConstant()) {
             if (lType.isConstant()) {

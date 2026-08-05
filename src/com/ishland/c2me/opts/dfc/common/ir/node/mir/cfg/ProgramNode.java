@@ -7,6 +7,10 @@ import com.ishland.c2me.opts.dfc.common.ir.phase.scalar.Canonicalizer;
 import com.ishland.c2me.opts.dfc.common.ir.type.ControlType;
 import com.ishland.c2me.opts.dfc.common.ir.type.IrType;
 
+/// Boundary of the whole graph. A valid graph always contains exactly one
+/// START and one END: START points to at least one {@link EntryNode}, and
+/// every {@link ReturnNode} points to END. Both are part of the control
+/// spine and must never be eliminated (see Canonicalizer).
 public enum ProgramNode implements ControlNode {
     START, END;
 

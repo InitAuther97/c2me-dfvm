@@ -11,8 +11,8 @@ public interface IntAddMulCommonOp extends IntCommonOp {
     int getUnitForOp();
 
     default boolean foldConstant(IrGraph graph, EdgeAccessor edges, int id, int lhs, int rhs, Canonicalizer canonicalizer) {
-        final var lType = (IntegerType) graph.getNode(lhs);
-        final var rType = (IntegerType) graph.getNode(rhs);
+        final var lType = (IntegerType) graph.getType(lhs);
+        final var rType = (IntegerType) graph.getType(rhs);
         // Do constant folding
         if (rType.isConstant()) {
             if (lType.isConstant()) {
