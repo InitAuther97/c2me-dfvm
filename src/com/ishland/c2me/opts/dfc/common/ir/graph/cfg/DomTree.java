@@ -107,6 +107,10 @@ public class DomTree {
         domTree.walk(this.root, EdgeAccessor.DepthFirstVisitor.onEnter(visitor));
     }
 
+    public void walk(EdgeAccessor.DepthFirstVisitor visitor) {
+        domTree.walk(this.root, visitor);
+    }
+
     private void buildIDom(EdgeAccessor control, IntList po, int begin) {
         boolean changed = true;
         while (changed) {

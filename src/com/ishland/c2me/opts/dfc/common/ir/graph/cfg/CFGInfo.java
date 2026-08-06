@@ -142,18 +142,6 @@ public class CFGInfo {
         return pdom;
     }
 
-    public void walkInDominance(IntLongBiConsumer visitor) {
-        final var workspace = WORKSPACE_CACHE.get().stack;
-        final var array = workspace.pop();
-        final var list = array == null ? new IntArrayList() : array;
-        dom.walk(list::add);
-        for (int i = 0; i < list.size(); i++) {
-            visitor.accept(i, this.basicBlocks[i]);
-        }
-        list.clear();
-        workspace.push(list);
-    }
-
     public void walkInRPO(IntLongBiConsumer visitor) {
         final var workspace = WORKSPACE_CACHE.get().stack;
         final var array = workspace.pop();

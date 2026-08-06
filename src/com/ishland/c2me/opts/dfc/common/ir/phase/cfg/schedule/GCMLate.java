@@ -3,14 +3,14 @@ package com.ishland.c2me.opts.dfc.common.ir.phase.cfg.schedule;
 import com.ishland.c2me.opts.dfc.common.ir.GraphContext;
 import com.ishland.c2me.opts.dfc.common.ir.LongUtil;
 import com.ishland.c2me.opts.dfc.common.ir.graph.EdgeAccessor;
-import com.ishland.c2me.opts.dfc.common.ir.graph.EdgeList;
 import com.ishland.c2me.opts.dfc.common.ir.graph.IrGraph;
 import com.ishland.c2me.opts.dfc.common.ir.graph.cfg.CFGInfo;
+import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.MergeNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.ReturnNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.mir.memory.MemPhiNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.branch.PhiNode;
-import com.ishland.c2me.opts.dfc.common.util.FastCompareIntArrayList;
+import com.ishland.flowsched.util.Assertions;
 import it.unimi.dsi.fastutil.ints.*;
-import it.unimi.dsi.fastutil.objects.Object2ReferenceOpenHashMap;
-import it.unimi.dsi.fastutil.objects.ReferenceArrayList;
 
 import java.util.BitSet;
 
@@ -19,210 +19,117 @@ public class GCMLate implements SchedulePhase {
 
     private static final ThreadLocal<Workspace> WORKSPACE_CACHE = ThreadLocal.withInitial(Workspace::new);
 
-    record Workspace(IntArrayList list, EdgeList scheduling, ReferenceArrayList<IntArrayList> cache,
-                     Object2ReferenceOpenHashMap<IntArrayList, IntList> optoCache, BitSet bitset) {
+    record Workspace(IntArrayList list, BitSet bitset) {
         Workspace() {
-            this(new IntArrayList(), new EdgeList(), new ReferenceArrayList<>(), new Object2ReferenceOpenHashMap<>(), new BitSet());
+            this(new IntArrayList(), new BitSet());
         }
     }
-
-    private final GraphContext context;
     private final IntArrayList stack;
-    private final EdgeList scheduling;
-    private final ReferenceArrayList<IntArrayList> cache;
-    private final Object2ReferenceOpenHashMap<IntArrayList, IntList> optoCache;
-    private final BitSet scheduledNodes;
+    private final BitSet availableNodes;
 
-    public GCMLate(GraphContext context) {
-        this.context = context;
+    public GCMLate() {
         final var workspace = WORKSPACE_CACHE.get();
         this.stack = workspace.list;
-        this.scheduling = workspace.scheduling;
-        this.cache = workspace.cache;
-        this.optoCache = workspace.optoCache;
-        this.scheduledNodes = workspace.bitset;
+        this.availableNodes = workspace.bitset;
+    }
+
+    class ScopeBoundScheduler implements EdgeAccessor.DepthFirstVisitor {
+
+        private final GraphContext context;
+        private final CFGInfo cfg;
+        private final BitSet[] scheduling;
+        private final BitSet visited = new BitSet();
+
+        ScopeBoundScheduler(GraphContext context, CFGInfo cfg, BitSet[] scheduling) {
+            this.context = context;
+            this.scheduling = scheduling;
+            this.cfg = cfg;
+        }
+
+        @Override
+        public boolean enter(int bbIdx) {
+            if (visited.get(bbIdx)) return false;
+            visited.set(bbIdx);
+            schedule(context, scheduling[bbIdx], cfg.getBasicBlock(bbIdx));
+            return true;
+        }
+
+        @Override
+        public void leave(int node) {
+            availableNodes.andNot(scheduling[node]);
+        }
     }
 
     /// Assign all nodes to its latest used location.
-    /// Then, do hoisting properly to reduce code size.
     /// Phi nodes are assigned to its respective Merge node.
+    /// Input of Phi nodes are assigned to its respective branch begin node.
     @Override
-    public void run() {
+    public void schedule(GraphContext context, int i, BitSet[] scheduling) {
         final var graph = context.getIrGraph();
-        final int sizeCache = scheduling.size();
-        final int sizeGraph = graph.size();
-        if (sizeCache < sizeGraph) {
-            scheduling.allocate(sizeGraph - sizeCache);
-        }
-        final var ctrl = graph.getControl();
-        for (int i = 0; i < graph.countPrograms(); i++) {
-            final var cfg = graph.getOrComputeCFGAt(i);
-            cfg.walkInDominance((j, l) -> schedule(cfg, j, l));
-            this.optimizeAndSet(cfg, ctrl);
-        }
+        final var cfg = graph.getOrComputeCFGAt(i);
+        final var visitor = new ScopeBoundScheduler(context, cfg, scheduling);
+        cfg.getDomTree().walk(visitor);
     }
 
-    private void schedule(CFGInfo cfg, int index, long block) {
-        // DFS array used to propagate node placement
+    private void schedule(GraphContext context, BitSet scheduling, long block) {
         final var graph = context.getIrGraph();
-        // There may be multiple blocks ending with Merge
-        // But only one begins with Merge
-        if (cfg.isMergeBlock(index)) {
-            schedLateOnMerge(stack, graph, scheduling, cfg, scheduledNodes, index, block);
-        }
-        // Merge block can be the end block at the same time
-        if (index == cfg.getEndBlock()) {
-            schedLateOnReturn(stack, graph, scheduling, scheduledNodes, index, block);
-        }
-    }
-
-    private void optimizeAndSet(CFGInfo cfg, EdgeAccessor ctrl) {
-        for (int i = 0; i < scheduling.size(); i++) {
-            final var scheduling = this.scheduling.getOperands(i);
-            if (scheduling == IntLists.EMPTY_LIST) continue;
-            final var result = this.optoCache.get((IntArrayList) scheduling);
-            final IntList sched;
-            if (result != null) {
-                sched = result;
-            } else {
-                final IntArrayList keyList = cache.isEmpty() ? new FastCompareIntArrayList() : cache.pop();
-                keyList.clear();
-                keyList.addAll(scheduling);
-                optimize(scheduling, cfg);
-                optoCache.put(keyList, scheduling);
-                sched = scheduling;
-            }
-            for (int j = 0; j < sched.size(); j++) {
-                final int bbIdx = sched.getInt(j);
-                final int nodeIdx = cfg.getBlockBegin(bbIdx);
-                ctrl.appendEdge(nodeIdx, i);
+        final var control = graph.getControl();
+        final int beginBlockNodeId = LongUtil.getLow(block);
+        final var beginBlockNode = graph.getNode(beginBlockNodeId);
+        if (beginBlockNode == MergeNode.MERGE) {
+            final var phis = control.getUsages(beginBlockNodeId);
+            for (int i = 0; i < phis.size(); i++) {
+                final int phi = phis.getInt(i);
+                availableNodes.set(phi);
+                scheduling.set(phi);
             }
         }
-        scheduling.resetUnsafe();
-        cache.addAll(optoCache.keySet());
-        optoCache.clear();
-    }
-
-    private static void optimize(IntList sched, CFGInfo cfg) {
-        boolean changedGlobal = false;
-        do {
-            int order = Integer.MAX_VALUE, endOrder = Integer.MIN_VALUE;
-            final var domTree = cfg.getDomTree();
-            int delta = -1;
-            for (int i = 0; i < sched.size(); i++) {
-                final int control = sched.getInt(i);
-                final int orderThis = domTree.getOrder(control);
-                final int endOrderThis = domTree.getEndOrder(control);
-                if (order <= orderThis && endOrderThis <= endOrder) {
-                    if (delta == 0) continue;
-                    sched.set(i + delta, sched.getInt(i));
+        final int endBlockNodeId = LongUtil.getHigh(block);
+        final var endBlockNode = graph.getNode(endBlockNodeId);
+        if (endBlockNode == MergeNode.MERGE) {
+            final var phis = control.getUsages(endBlockNodeId);
+            final int branch = control.getOperands(endBlockNodeId).indexOf(beginBlockNodeId);
+            for (int i = 0; i < phis.size(); i++) {
+                final int phiOrMemPhiId = phis.getInt(i);
+                final var phiOrMemPhi = graph.getNode(phiOrMemPhiId);
+                Assertions.assertTrue(phiOrMemPhi == PhiNode.PHI || phiOrMemPhi == MemPhiNode.PHI, "Expected only PhiNode or MemPhiNode scheduled before global code motion");
+                final int nodeToSchedule;
+                if (phiOrMemPhi == PhiNode.PHI) {
+                    nodeToSchedule = graph.getValue().getOperands(phiOrMemPhiId).getInt(branch);
                 } else {
-                    delta++;
-                    order = orderThis;
-                    endOrder = endOrderThis;
+                    nodeToSchedule = graph.getMemory().getOperands(phiOrMemPhiId).getInt(branch);
                 }
+                schedLateIterative(graph, scheduling, nodeToSchedule);
             }
-
-            final var pdomTree = cfg.getPdomTree();
-            boolean changed = true;
-            while (changed) {
-                changed = false;
-                for (int i = 0; i < sched.size(); i++) {
-                    int ctrl1 = sched.getInt(i);
-                    for (int j = i; j < sched.size(); j++) {
-                        final int ctrl2 = sched.getInt(j);
-                        if (!pdomTree.isDominatedBy(ctrl1, ctrl2)) continue;
-                        ctrl1 = domTree.lca(ctrl1, ctrl2);
-                        sched.set(i, ctrl1);
-                        sched.removeInt(j);
-                        changed = true;
-                    }
-                }
-            }
-
-            changed = true;
-            while (changed) {
-                changed = false;
-                for (int i = 0; i < sched.size(); i++) {
-                    int ctrl1 = sched.getInt(i);
-                    for (int j = i; j < sched.size(); j++) {
-                        final int ctrl2 = sched.getInt(j);
-                        if (!cfg.isVeryBusy(ctrl1, ctrl2)) continue;
-                        ctrl1 = domTree.lca(ctrl1, ctrl2);
-                        sched.set(i, ctrl1);
-                        sched.removeInt(j);
-                        changed = true;
-                    }
-                }
-            }
-
-            for (int i = 0; i < sched.size(); i++) {
-                int best = sched.getInt(i);
-                int bestDepth = cfg.getLoopDepthForBlock(best);
-                if (bestDepth != 0) {
-                    int idom = best, depth;
-                    while ((idom = domTree.getIDom(idom)) != -1) {
-                        depth = cfg.getLoopDepthForBlock(idom);
-                        if (depth < bestDepth) {
-                            best = idom;
-                            bestDepth = depth;
-                            changedGlobal = true;
-                        }
-                    }
-                }
-                sched.set(i, best);
-            }
-        } while (changedGlobal);
-    }
-
-    private static void schedLateOnReturn(IntArrayList stack, IrGraph graph, EdgeList scheduling, BitSet visited, int ret, long blk) {
-        final var retVals = graph.getValue().getOperands(LongUtil.getHigh(blk));
-        // We start from return value, and then mark other aspects (e.g. memory)
-        // This prevents us from
-        for (int i = 1; i < retVals.size(); i++) {
-            schedLateIterative(stack, graph, scheduling, visited, ret, retVals.getInt(i));
-        }
-        visited.clear();
-    }
-
-    private static void schedLateOnMerge(IntArrayList stack, IrGraph graph, EdgeList scheduling, CFGInfo cfg, BitSet visited, int merge, long blk) {
-        final var ctrl = cfg.getCFG();
-        final var value = graph.getValue();
-        final var upstreamCtrl = ctrl.getOperands(merge);
-        // We need pinned Phi assignment, don't use CFG here
-        final var usages = graph.getControl().getUsages(LongUtil.getLow(blk));
-        for (int j = 0; j < usages.size(); j++) {
-            final int idx = usages.getInt(j);
-            final var node2 = graph.getNode(idx);
-            // Phi is already pinned at Merge.
-            // This is guaranteed by the graph semantic.
-            if (node2 != PhiNode.PHI) {
-                continue;
-            }
-            final var upstreamPhi = value.getOperands(idx);
-            final int valueZero = upstreamPhi.getInt(0);
-            final int valueOne = upstreamPhi.getInt(1);
-            final int branchZero = upstreamCtrl.getInt(0);
-            final int branchOne = upstreamCtrl.getInt(1);
-            schedLateIterative(stack, graph, scheduling, visited, branchZero, valueZero);
-            visited.clear();
-            schedLateIterative(stack, graph, scheduling, visited, branchOne, valueOne);
-            visited.clear();
+        } else if (endBlockNode == ReturnNode.RET) {
+            schedLateOnReturn(graph, scheduling, endBlockNodeId);
         }
     }
 
-    private static void schedLateIterative(IntArrayList stack, IrGraph graph, EdgeList scheduling, BitSet visited, int control, int valueToSchedule) {
+    private void schedLateOnReturn(IrGraph graph, BitSet scheduling, int ebbIdx) {
+        final var values = graph.getValue().getOperands(ebbIdx);
+        final var memories = graph.getMemory().getOperands(ebbIdx);
+        Assertions.assertTrue(values.size() == 1, "Should have only one return value");
+        schedLateIterative(graph, scheduling, values.getInt(0));
+        for (int i = 0; i < memories.size(); i++) {
+            schedLateIterative(graph, scheduling, memories.getInt(i));
+        }
+    }
+
+    private void schedLateIterative(IrGraph graph, BitSet scheduling, int nodeToSchedule) {
+        final var stack = this.stack;
+        final var memory = graph.getMemory();
         final var value = graph.getValue();
-        stack.push(valueToSchedule);
+        stack.push(nodeToSchedule);
         while (!stack.isEmpty()) {
             int toSchedule = stack.popInt();
-            if (visited.get(toSchedule)) continue;
-            visited.set(toSchedule);
-            final var node = graph.getNode(toSchedule);
-            if (node == PhiNode.PHI) continue;
-            scheduling.appendEdge(control, toSchedule);
-            final var operands = value.getOperands(toSchedule);
-            stack.addAll(operands);
+            if (availableNodes.get(toSchedule)) continue;
+            availableNodes.set(toSchedule);
+            scheduling.set(toSchedule);
+            final var vOps = value.getOperands(toSchedule);
+            final var mOps = memory.getOperands(toSchedule);
+            stack.addAll(vOps);
+            stack.addAll(mOps);
         }
     }
 }

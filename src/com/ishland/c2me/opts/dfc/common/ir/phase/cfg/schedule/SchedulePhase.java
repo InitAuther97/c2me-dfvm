@@ -1,6 +1,9 @@
 package com.ishland.c2me.opts.dfc.common.ir.phase.cfg.schedule;
 
-import com.ishland.c2me.opts.dfc.common.ir.phase.MidTierPhase;
+import com.ishland.c2me.opts.dfc.common.ir.GraphContext;
 
-public interface SchedulePhase extends MidTierPhase {
+import java.util.BitSet;
+
+public interface SchedulePhase {
+    void schedule(GraphContext graph, int programIndex, BitSet[] scheduling);
 }
