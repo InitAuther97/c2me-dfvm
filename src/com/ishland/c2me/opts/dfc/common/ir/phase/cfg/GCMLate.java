@@ -1,16 +1,17 @@
-package com.ishland.c2me.opts.dfc.common.ir.phase.cfg.schedule;
+package com.ishland.c2me.opts.dfc.common.ir.phase.cfg;
 
 import com.ishland.c2me.opts.dfc.common.ir.GraphContext;
 import com.ishland.c2me.opts.dfc.common.ir.LongUtil;
 import com.ishland.c2me.opts.dfc.common.ir.graph.EdgeAccessor;
 import com.ishland.c2me.opts.dfc.common.ir.graph.IrGraph;
-import com.ishland.c2me.opts.dfc.common.ir.graph.cfg.CFGInfo;
+import com.ishland.c2me.opts.dfc.common.ir.graph.cfg.CFGAccess;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.MergeNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.ReturnNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.memory.MemPhiNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.branch.PhiNode;
 import com.ishland.flowsched.util.Assertions;
 import it.unimi.dsi.fastutil.ints.*;
+import it.unimi.dsi.fastutil.objects.ReferenceArrayList;
 
 import java.util.BitSet;
 
@@ -24,10 +25,13 @@ public class GCMLate implements SchedulePhase {
             this(new IntArrayList(), new BitSet());
         }
     }
+
+    private final GraphContext context;
     private final IntArrayList stack;
     private final BitSet availableNodes;
 
-    public GCMLate() {
+    public GCMLate(GraphContext ctx) {
+        this.context = ctx;
         final var workspace = WORKSPACE_CACHE.get();
         this.stack = workspace.list;
         this.availableNodes = workspace.bitset;
@@ -36,27 +40,40 @@ public class GCMLate implements SchedulePhase {
     class ScopeBoundScheduler implements EdgeAccessor.DepthFirstVisitor {
 
         private final GraphContext context;
-        private final CFGInfo cfg;
-        private final BitSet[] scheduling;
-        private final BitSet visited = new BitSet();
+        private final CFGAccess.Dominator cfg;
+        private final ReferenceArrayList<BitSet> byDepth = new ReferenceArrayList<>();
+        private int depth = 0;
 
-        ScopeBoundScheduler(GraphContext context, CFGInfo cfg, BitSet[] scheduling) {
+        ScopeBoundScheduler(GraphContext context, CFGAccess.Dominator cfg) {
             this.context = context;
-            this.scheduling = scheduling;
             this.cfg = cfg;
         }
 
         @Override
         public boolean enter(int bbIdx) {
-            if (visited.get(bbIdx)) return false;
-            visited.set(bbIdx);
-            schedule(context, scheduling[bbIdx], cfg.getBasicBlock(bbIdx));
+            final BitSet bitset;
+            final int depth = this.depth++;
+            if (depth == byDepth.size()) {
+                bitset = new BitSet();
+                byDepth.add(bitset);
+            } else {
+                bitset = byDepth.get(depth);
+            }
+            schedule(context, bitset, cfg.getBasicBlock(bbIdx));
             return true;
         }
 
         @Override
         public void leave(int node) {
-            availableNodes.andNot(scheduling[node]);
+            final var bitset = byDepth.get(depth--);
+            availableNodes.andNot(bitset);
+            final var ctrl = context.getIrGraph().getControl();
+            final int begin = cfg.getBlockBegin(node);
+            int i = -1;
+            while ((i = bitset.nextSetBit(i + 1)) != -1) {
+                ctrl.appendEdge(begin, i);
+            }
+            bitset.clear();
         }
     }
 
@@ -64,11 +81,13 @@ public class GCMLate implements SchedulePhase {
     /// Phi nodes are assigned to its respective Merge node.
     /// Input of Phi nodes are assigned to its respective branch begin node.
     @Override
-    public void schedule(GraphContext context, int i, BitSet[] scheduling) {
+    public void run() {
         final var graph = context.getIrGraph();
-        final var cfg = graph.getOrComputeCFGAt(i);
-        final var visitor = new ScopeBoundScheduler(context, cfg, scheduling);
-        cfg.getDomTree().walk(visitor);
+        for (int i = 0; i < graph.countPrograms(); i++) {
+            final var cfg = graph.getOrComputeCFGAt(i, CFGAccess.Status.DOMINATOR);
+            final var visitor = new ScopeBoundScheduler(context, cfg);
+            cfg.getDomTree().walk(visitor);
+        }
     }
 
     private void schedule(GraphContext context, BitSet scheduling, long block) {
@@ -92,7 +111,8 @@ public class GCMLate implements SchedulePhase {
             for (int i = 0; i < phis.size(); i++) {
                 final int phiOrMemPhiId = phis.getInt(i);
                 final var phiOrMemPhi = graph.getNode(phiOrMemPhiId);
-                Assertions.assertTrue(phiOrMemPhi == PhiNode.PHI || phiOrMemPhi == MemPhiNode.PHI, "Expected only PhiNode or MemPhiNode scheduled before global code motion");
+                Assertions.assertTrue(phiOrMemPhi == PhiNode.PHI || phiOrMemPhi == MemPhiNode.PHI,
+                        "Expected only PhiNode or MemPhiNode scheduled before global code motion");
                 final int nodeToSchedule;
                 if (phiOrMemPhi == PhiNode.PHI) {
                     nodeToSchedule = graph.getValue().getOperands(phiOrMemPhiId).getInt(branch);

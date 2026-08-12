@@ -14,6 +14,10 @@ public abstract class SelectionNode implements MIRNode {
 
     protected abstract EdgeAccessor getEdgeForSelection(IrGraph graph);
 
+    protected BranchType getBranchType(IrGraph graph, int id) {
+        return (BranchType) graph.getType(graph.getControl().getOperands(id).getInt(0));
+    }
+
     @Override
     public void export(IrGraph graph, int id, GraphBuilder builder) {
 
@@ -47,18 +51,26 @@ public abstract class SelectionNode implements MIRNode {
 
     @Override
     public boolean optimize(IrGraph graph, int id, Canonicalizer canonicalizer, GraphContext ctx) {
-        final var control = graph.getControl().getOperands(id).getInt(0);
-        final var branch = (BranchType) graph.getType(control);
+        final var branch = getBranchType(graph, id);
         final int type = branch.getBranch();
         if (type == 0 || type == 3) {
             // Both sides are dead; can't do anything but wait until we're dead.
             // Both sides are alive; nothing we can do.
-            return false;
+            return collapseSameInput(graph, id, canonicalizer);
         }
         // Collapse to the corresponding input.
         final int input = getEdgeForSelection(graph).getOperands(id).getInt(type - 1);
         IrNode.transferDownstream(graph.getControl(), id, input, canonicalizer);
         // Now we can be eliminated.
+        return true;
+    }
+
+    protected boolean collapseSameInput(IrGraph graph, int id, Canonicalizer canonicalizer) {
+        final var edge = getEdgeForSelection(graph);
+        final var input = edge.getOperands(id);
+        final int first = input.getInt(0);
+        if (first != input.getInt(1)) return false;
+        IrNode.transferDownstream(edge, id, first, canonicalizer);
         return true;
     }
 }

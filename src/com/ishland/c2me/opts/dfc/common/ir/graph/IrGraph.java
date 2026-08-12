@@ -1,7 +1,8 @@
 package com.ishland.c2me.opts.dfc.common.ir.graph;
 
 import com.ishland.c2me.opts.dfc.common.ir.LongUtil;
-import com.ishland.c2me.opts.dfc.common.ir.graph.cfg.CFGInfo;
+import com.ishland.c2me.opts.dfc.common.ir.graph.cfg.CFGAccess;
+import com.ishland.c2me.opts.dfc.common.ir.graph.cfg.CFGAccess;
 import com.ishland.c2me.opts.dfc.common.ir.graph.value.NodeState;
 import com.ishland.c2me.opts.dfc.common.ir.node.IrNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.EntryNode;
@@ -26,13 +27,13 @@ public class IrGraph {
     private final EdgeList memory  = new EdgeList();
 
     private final LongArrayList programs; // high: end (32bit) | begin (32bit)
-    private final ReferenceArrayList<CFGInfo> cfgInfos;
+    private final ReferenceArrayList<CFGAccess> cfgs;
 
     private int size, modCount;
 
     public IrGraph() {
         programs = new LongArrayList();
-        cfgInfos = new ReferenceArrayList<>();
+        cfgs = new ReferenceArrayList<>();
     }
 
     protected IrGraph(IrGraph graph) {
@@ -42,7 +43,7 @@ public class IrGraph {
         this.value.copyFrom(graph.value);
         this.memory.copyFrom(graph.memory);
         this.programs = graph.programs.clone();
-        this.cfgInfos = graph.cfgInfos.clone();
+        this.cfgs = graph.cfgs.clone();
         this.size = graph.size;
         this.modCount = 0;
     }
@@ -53,7 +54,7 @@ public class IrGraph {
         Assertions.assertTrue(idx < 0, "Program starts with %d already exists", begin);
         final int realIdx = ~idx;
         programs.add(realIdx, LongUtil.make(begin, end));
-        cfgInfos.add(realIdx, null);
+        cfgs.add(realIdx, null);
     }
 
     public int getProgramEnd(int begin) {
@@ -70,10 +71,10 @@ public class IrGraph {
         return programs.getLong(i);
     }
 
-    public CFGInfo getOrComputeCFG(int begin) {
+    public <T extends CFGAccess> T getOrComputeCFG(int begin, CFGAccess.Status<T> status) {
         final int idx = LongUtil.findByLow(programs.elements(), begin, 0, programs.size() - 1);
         Assertions.assertTrue(idx >= 0, "Program starts with %d not found", begin);
-        return getOrComputeCFGAt(idx);
+        return getOrComputeCFGAt(idx, status);
     }
 
     public void invalidateCFG(int begin) {
@@ -84,17 +85,16 @@ public class IrGraph {
 
     public void invalidateCFGAt(int idx) {
         Assertions.assertTrue(idx < countPrograms(), "Program index overflow");
-        cfgInfos.set(idx, null);
+        cfgs.set(idx, null);
     }
 
-    public CFGInfo getOrComputeCFGAt(int idx) {
-        final var info = cfgInfos.get(idx);
-        if (info != null) {
-            return info;
-        }
+    public <T extends CFGAccess> T getOrComputeCFGAt(int idx, CFGAccess.Status<T> status) {
+        final var info = cfgs.get(idx);
+        if (info != null && info.isAtLeast(status))
+            return status.cast(info);
         final long program = programs.getLong(idx);
-        final var cfg = CFGInfo.create(this, LongUtil.getLow(program), LongUtil.getHigh(program));
-        cfgInfos.set(idx, cfg);
+        final var cfg = CFGAccess.build(this, idx, info, status);
+        cfgs.set(idx, cfg);
         return cfg;
     }
 

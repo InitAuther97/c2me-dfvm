@@ -31,51 +31,77 @@ public class GVN extends PostRunCanonicalizerPhase implements IntHash.Strategy, 
      */
     @Override
     public void run() {
-        final var edges = graph.getValue();
+        final var control = graph.getControl();
+        final var value = graph.getValue();
+        final var memory = graph.getMemory();
         for (int i = 0; i < graph.countPrograms(); i++) {
             final long program = graph.getProgramAt(i);
             final int begin = (int) (program >>> 32);
             final int end = (int) program;
-            final var rpo = new RPOIterator(edges, begin, end);
+            final var rpo = new RPOIterator(value, begin, end);
             while (rpo.hasNext()) {
                 final int node = rpo.nextInt();
-                // Compute for a replacement
-                final int replacement = globalMap.putIfAbsent(node, node);
-                if (replacement == -1) {
-                    // We are not replaced
-                    continue;
-                }
-                final var value = graph.getValue();
-                // We're technically done for replacement calculation now
-                final var usages = value.getUsages(node);
-                // Do actual replacement
-                while (!usages.isEmpty()) {
-                    final int downstream = GraphUtil.getLast(usages);
-                    value.replaceEdge(downstream, node, replacement);
-                }
+                if (!number(node)) continue;
                 // Add to canonicalizer for dead code elimination
                 enqueue(node);
             }
         }
     }
 
+    boolean number(int node) {
+        final var control = graph.getControl();
+        final var value = graph.getValue();
+        final var memory = graph.getMemory();
+        // Compute for a replacement
+        final int replacement = globalMap.putIfAbsent(node, node);
+        if (replacement == -1) {
+            // We are not replaced
+            return false;
+        }
+        // We're technically done for replacement calculation now
+        final var scheduling = control.getOperands(node);
+        final var vUses = value.getUsages(node);
+        final var mUses = memory.getUsages(node);
+        // Do actual replacement
+        while (!vUses.isEmpty()) {
+            final int downstream = GraphUtil.getLast(vUses);
+            value.replaceEdge(downstream, node, replacement);
+        }
+
+        while (!mUses.isEmpty()) {
+            final int downstream = GraphUtil.getLast(mUses);
+            memory.replaceEdge(downstream, node, replacement);
+        }
+
+        for (int j = 0; j < scheduling.size(); j++) {
+            control.appendEdge(scheduling.getInt(j), replacement);
+        }
+        return true;
+    }
+
     /// Hash strategy for node id
     @Override
     public int hashCode(int e) {
-        final var operands = graph.getValue().getOperands(e);
+        final var vOps = graph.getValue().getOperands(e);
+        final var mOps = graph.getMemory().getOperands(e);
         final var node = graph.getNode(e);
-        return 31 * operands.hashCode() + node.hash();
+        return Objects.hash(vOps, mOps, node);
     }
 
     /// Equality strategy for node id
     @Override
     public boolean equals(int a, int b) {
         if (a == b) return true;
-        final var operandsA = graph.getValue().getOperands(a);
-        final var operandsB = graph.getValue().getOperands(b);
+        final var value = graph.getValue();
+        final var memory = graph.getMemory();
+        final var vOpsA = value.getOperands(a);
+        final var vOpsB = value.getOperands(b);
+        final var mOpsA = memory.getOperands(a);
+        final var mOpsB = memory.getOperands(b);
+
         final var nodeA = graph.getNode(a);
         final var nodeB = graph.getNode(b);
-        return Objects.equals(operandsA, operandsB) && (nodeA == nodeB
-                || (nodeA.getClass() == nodeB.getClass() && nodeA.isEqual(nodeB)));
+        return Objects.equals(vOpsA, vOpsB) && Objects.equals(mOpsA, mOpsB) &&
+                ((nodeA == nodeB || nodeA.getClass() == nodeB.getClass()) && nodeA.isEqual(nodeB));
     }
 }

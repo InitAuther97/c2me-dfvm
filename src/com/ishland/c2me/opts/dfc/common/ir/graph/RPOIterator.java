@@ -11,7 +11,7 @@ public class RPOIterator implements IntIterator {
     int index;
 
     public RPOIterator(EdgeAccessor edges, int begin, int end) {
-        PostOrderVisitor.populatePostOrder(edges, begin, end, this.postOrder);
+        PostOrderCollector.populatePostOrder(edges, begin, end, this.postOrder);
         this.index = this.postOrder.size();
     }
 

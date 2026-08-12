@@ -12,21 +12,10 @@ import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.ReturnNode;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntArrays;
 
+import java.util.BitSet;
 import java.util.Objects;
 
 public class Canonicalizer implements Runnable {
-    private final GraphContext context;
-
-    private IntArrayList workQueue = new IntArrayList();
-    private IntArrayList workQueue2 = new IntArrayList();
-
-    public Canonicalizer(GraphContext ctx) {
-        this.context = ctx;
-    }
-
-    public void addToWorkQueue(int node) {
-        insert(workQueue2, node);
-    }
 
     private static void addDownstream(IrGraph graph, IntArrayList list, int element) {
         final var value = graph.getValue().getUsages(element);
@@ -60,23 +49,6 @@ public class Canonicalizer implements Runnable {
         list.add(-index - 1, element);
     }
 
-    private static void deadCodeElim(IrGraph graph, int id, IntArrayList workQueue) {
-        final var value = graph.getValue();
-        final var memory = graph.getMemory();
-        final var control = graph.getControl();
-        remove(control, id, workQueue);
-        remove(value, id, workQueue);
-        remove(memory, id, workQueue);
-        graph.removeNode(id);
-    }
-
-    /// The control spine of a graph (program start/end, entries and returns)
-    /// is structural: a valid graph always contains it, so it is never
-    /// subject to dead code elimination even when it has no usages.
-    private static boolean isControlSpine(IrNode node) {
-        return node instanceof ProgramNode || node instanceof EntryNode || node instanceof ReturnNode;
-    }
-
     private static void remove(EdgeAccessor edge, int id, IntArrayList workQueue) {
         final var op = edge.getOperands(id);
         while (!op.isEmpty()) {
@@ -85,6 +57,63 @@ public class Canonicalizer implements Runnable {
             insert(workQueue, operand);
         }
     }
+
+    public static class Scheduled extends Canonicalizer {
+
+        private final BitSet[] scheduling;
+
+        public Scheduled(GraphContext ctx, BitSet[] scheduling) {
+            super(ctx);
+            this.scheduling = scheduling;
+        }
+
+        @Override
+        protected void onRemoveControl(int control, int node) {
+            super.onRemoveControl(control, node);
+        }
+    }
+
+    private final GraphContext context;
+
+    private IntArrayList workQueue = new IntArrayList();
+    private IntArrayList workQueue2 = new IntArrayList();
+
+    public Canonicalizer(GraphContext ctx) {
+        this.context = ctx;
+    }
+
+    public void addToWorkQueue(int node) {
+        insert(workQueue2, node);
+    }
+
+    private void deadCodeElim(IrGraph graph, int id, IntArrayList workQueue) {
+        final var value = graph.getValue();
+        final var memory = graph.getMemory();
+        final var control = graph.getControl();
+
+        final var op = control.getOperands(id);
+        while (!op.isEmpty()) {
+            final int operand = GraphUtil.getLast(op);
+            onRemoveControl(operand, id);
+            control.removeEdge(operand, id);
+            insert(workQueue, operand);
+        }
+        remove(value, id, workQueue);
+        remove(memory, id, workQueue);
+        graph.removeNode(id);
+    }
+
+    protected void onRemoveControl(int control, int node) {}
+
+    protected void onAddControl(int control, int node) {}
+
+    /// The control spine of a graph (program start/end, entries and returns)
+    /// is structural: a valid graph always contains it, so it is never
+    /// subject to dead code elimination even when it has no usages.
+    private static boolean isControlSpine(IrNode node) {
+        return node instanceof ProgramNode || node instanceof EntryNode || node instanceof ReturnNode;
+    }
+
 
     @Override
     public void run() {

@@ -8,7 +8,7 @@ import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.ValueOpNode;
 public class PhiNode extends SelectionNode implements ValueOpNode {
     public static final PhiNode PHI = new PhiNode();
 
-    private PhiNode() {}
+    protected PhiNode() {}
 
     @Override
     protected EdgeAccessor getEdgeForSelection(IrGraph graph) {
