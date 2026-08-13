@@ -35,6 +35,7 @@ public class LoopRotation extends PostRunCanonicalizerPhase implements ScheduleP
 
     @Override
     public void run() {
+        // We can't use collect and apply scheduling here as we modify CFG.
 
     }
 }

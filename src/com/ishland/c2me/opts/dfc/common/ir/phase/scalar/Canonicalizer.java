@@ -58,21 +58,6 @@ public class Canonicalizer implements Runnable {
         }
     }
 
-    public static class Scheduled extends Canonicalizer {
-
-        private final BitSet[] scheduling;
-
-        public Scheduled(GraphContext ctx, BitSet[] scheduling) {
-            super(ctx);
-            this.scheduling = scheduling;
-        }
-
-        @Override
-        protected void onRemoveControl(int control, int node) {
-            super.onRemoveControl(control, node);
-        }
-    }
-
     private final GraphContext context;
 
     private IntArrayList workQueue = new IntArrayList();
@@ -90,22 +75,11 @@ public class Canonicalizer implements Runnable {
         final var value = graph.getValue();
         final var memory = graph.getMemory();
         final var control = graph.getControl();
-
-        final var op = control.getOperands(id);
-        while (!op.isEmpty()) {
-            final int operand = GraphUtil.getLast(op);
-            onRemoveControl(operand, id);
-            control.removeEdge(operand, id);
-            insert(workQueue, operand);
-        }
+        remove(control, id, workQueue);
         remove(value, id, workQueue);
         remove(memory, id, workQueue);
         graph.removeNode(id);
     }
-
-    protected void onRemoveControl(int control, int node) {}
-
-    protected void onAddControl(int control, int node) {}
 
     /// The control spine of a graph (program start/end, entries and returns)
     /// is structural: a valid graph always contains it, so it is never
