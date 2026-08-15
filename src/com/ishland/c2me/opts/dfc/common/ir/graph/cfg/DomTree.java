@@ -101,11 +101,7 @@ public class DomTree {
             }
         }
         return left;
-    }
-
-    public void walk(IntConsumer visitor) {
-        domTree.walk(this.root, EdgeAccessor.DepthFirstVisitor.onEnter(visitor));
-    }
+    }   
 
     public void walk(EdgeAccessor.DepthFirstVisitor visitor) {
         domTree.walk(this.root, visitor);

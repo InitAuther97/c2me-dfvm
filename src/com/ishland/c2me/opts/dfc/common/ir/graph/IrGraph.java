@@ -50,7 +50,7 @@ public class IrGraph {
 
     public void defineProgram(int begin, int end) {
         Assertions.assertTrue(getNode(begin) instanceof EntryNode && getNode(end) == ReturnNode.RET);
-        final int idx = LongUtil.findByLow(programs.elements(), begin, 0, programs.size() - 1);
+        final int idx = LongUtil.findByLow(programs.elements(), begin, 0, programs.size());
         Assertions.assertTrue(idx < 0, "Program starts with %d already exists", begin);
         final int realIdx = ~idx;
         programs.add(realIdx, LongUtil.make(begin, end));
@@ -58,7 +58,7 @@ public class IrGraph {
     }
 
     public int getProgramEnd(int begin) {
-        final int idx = LongUtil.findByLow(programs.elements(), begin, 0, programs.size() - 1);
+        final int idx = LongUtil.findByLow(programs.elements(), begin, 0, programs.size());
         Assertions.assertTrue(idx >= 0, "Program starts with %d not found", begin);
         return LongUtil.getLow(programs.getLong(idx));
     }
@@ -72,13 +72,13 @@ public class IrGraph {
     }
 
     public <T extends CFGAccess> T getOrComputeCFG(int begin, CFGAccess.Status<T> status) {
-        final int idx = LongUtil.findByLow(programs.elements(), begin, 0, programs.size() - 1);
+        final int idx = LongUtil.findByLow(programs.elements(), begin, 0, programs.size());
         Assertions.assertTrue(idx >= 0, "Program starts with %d not found", begin);
         return getOrComputeCFGAt(idx, status);
     }
 
     public void invalidateCFG(int begin) {
-        final int idx = LongUtil.findByLow(programs.elements(), begin, 0, programs.size() - 1);
+        final int idx = LongUtil.findByLow(programs.elements(), begin, 0, programs.size());
         Assertions.assertTrue(idx >= 0, "Program starts with %d not found", begin);
         invalidateCFGAt(idx);
     }

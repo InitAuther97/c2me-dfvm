@@ -4,12 +4,13 @@ import com.ishland.c2me.opts.dfc.common.ir.LongUtil;
 import com.ishland.c2me.opts.dfc.common.ir.graph.EdgeAccessor;
 import com.ishland.c2me.opts.dfc.common.ir.graph.IrGraph;
 import com.ishland.c2me.opts.dfc.common.ir.graph.PostOrderCollector;
+import com.ishland.c2me.opts.dfc.common.util.ArrayUtil;
 import com.ishland.c2me.opts.dfc.common.util.BitSetIterator;
 import com.ishland.flowsched.util.Assertions;
 import it.unimi.dsi.fastutil.Stack;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
+import it.unimi.dsi.fastutil.ints.IntArrays;
 import it.unimi.dsi.fastutil.ints.IntIterator;
-import it.unimi.dsi.fastutil.ints.IntIterators;
 import it.unimi.dsi.fastutil.longs.LongIterator;
 import it.unimi.dsi.fastutil.longs.LongIterators;
 import it.unimi.dsi.fastutil.objects.ReferenceArrayList;
@@ -21,6 +22,7 @@ import java.util.Comparator;
 public sealed interface CFGAccess {
     Comparator<CFGLoop> BY_SIZE = Comparator.comparing(CFGLoop::blocks,
             Comparator.comparingInt(BitSet::cardinality));
+    Comparator<CFGLoop> BY_HEADER = Comparator.comparingInt(CFGLoop::header);
 
     ThreadLocal<Workspace> WORKSPACE_CACHE = ThreadLocal.withInitial(Workspace::new);
 
@@ -158,10 +160,8 @@ public sealed interface CFGAccess {
 
     class Status<T extends CFGAccess> {
 
-        private static int statusIndex = 0;
-
-        private static <T extends CFGAccess> Status<T> create(Class<T> clazz) {
-            return new Status<>(statusIndex++, clazz);
+        private static <T extends CFGAccess> Status<T> create(int idx, Class<T> clazz) {
+            return new Status<>(idx, clazz);
         }
 
         private final int idx;
@@ -180,12 +180,12 @@ public sealed interface CFGAccess {
             return clazz.isInstance(access);
         }
 
-        public static final Status<BasicBlock> BASIC_BLOCK = create(BasicBlock.class);
-        public static final Status<FlowGraph> FLOW_GRAPH = create(FlowGraph.class);
-        public static final Status<Dominator> DOMINATOR = create(Dominator.class);
-        public static final Status<LoopHeader> LOOP_HEADER = create(LoopHeader.class);
-        public static final Status<LoopBody> LOOP_BODY = create(LoopBody.class);
-        public static final Status<LoopNest> LOOP = create(LoopNest.class);
+        public static final Status<BasicBlock> BASIC_BLOCK = create(0, BasicBlock.class);
+        public static final Status<FlowGraph> FLOW_GRAPH = create(1, FlowGraph.class);
+        public static final Status<Dominator> DOMINATOR = create(2, Dominator.class);
+        public static final Status<LoopHeader> LOOP_HEADER = create(3, LoopHeader.class);
+        public static final Status<LoopBody> LOOP_BODY = create(4, LoopBody.class);
+        public static final Status<LoopNest> LOOP_NEST = create(5, LoopNest.class);
     }
 
     sealed class Base implements CFGAccess {
@@ -323,7 +323,7 @@ public sealed interface CFGAccess {
             return dom.isDominatedBy(blockThis, blockThat);
         }
 
-        public boolean isPostDominatedBy(int controlThis, int controlThat) {
+        public final boolean isPostDominatedBy(int controlThis, int controlThat) {
             final int idThis = LongUtil.findByLow(basicBlocks, controlThis);
             final int idThat = LongUtil.findByLow(basicBlocks, controlThat);
             return isBlockPostDominatedBy(idThis, idThat);
@@ -353,11 +353,11 @@ public sealed interface CFGAccess {
             this(Status.LOOP_HEADER.idx, begin, end, endBlock, basicBlocks, mergeBlocks, splitBlocks, cfg, dom, pdom, loopHeaders);
         }
 
-        public boolean isBlockLoopHeader(int blockIdx) {
+        public final boolean isBlockLoopHeader(int blockIdx) {
             return loopHeaders.get(blockIdx);
         }
 
-        public IntIterator loopHeaderIterator() {
+        public final IntIterator loopHeaderIterator() {
             return new BitSetIterator(loopHeaders);
         }
     }
@@ -378,11 +378,11 @@ public sealed interface CFGAccess {
                  BitSet mergeBlocks, BitSet splitBlocks, EdgeAccessor cfg,
                  DomTree dom, DomTree pdom, BitSet loopHeaders,
                  CFGLoop[] loops) {
-            this(Status.LOOP.idx, begin, end, endBlock, basicBlocks, mergeBlocks, splitBlocks, cfg, dom, pdom, loopHeaders, loops);
+            this(Status.LOOP_BODY.idx, begin, end, endBlock, basicBlocks, mergeBlocks, splitBlocks, cfg, dom, pdom, loopHeaders, loops);
         }
 
-        public CFGLoop getLoop(int idx) {
-            return loops[idx];
+        public CFGLoop getLoopFromHeader(int headerIdx) {
+            return ArrayUtil.binarySearch(loops, CFGLoop::header, headerIdx);
         }
     }
 
@@ -395,9 +395,14 @@ public sealed interface CFGAccess {
                  BitSet mergeBlocks, BitSet splitBlocks, EdgeAccessor cfg,
                  DomTree dom, DomTree pdom, BitSet loopHeaders,
                  CFGLoop[] loops, int[] blockToLoop, long[] parentAndDepth) {
-            super(Status.LOOP.idx, begin, end, endBlock, basicBlocks, mergeBlocks, splitBlocks, cfg, dom, pdom, loopHeaders, loops);
+            super(Status.LOOP_NEST.idx, begin, end, endBlock, basicBlocks, mergeBlocks, splitBlocks, cfg, dom, pdom, loopHeaders, loops);
             this.blockToLoop = blockToLoop;
             this.parentAndDepth = parentAndDepth;
+        }
+
+        @Override
+        public CFGLoop getLoopFromHeader(int headerIdx) {
+            return loops[blockToLoop[headerIdx]];
         }
 
         public int getLoopDepth(int beginNode) {

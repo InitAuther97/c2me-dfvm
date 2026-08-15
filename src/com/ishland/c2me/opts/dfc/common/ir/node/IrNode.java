@@ -11,7 +11,9 @@ import com.ishland.c2me.opts.dfc.common.ir.type.IrType;
 
 import java.util.logging.Logger;
 
-
+/// IrNode: node is value based and immutable
+/// It is safe to use the same instance over different nodes
+///
 public interface IrNode {
 
     Logger LOGGER = Logger.getLogger("IrNode");

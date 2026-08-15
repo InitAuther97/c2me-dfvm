@@ -21,11 +21,11 @@ public class LongUtil {
     }
 
     public static void sortByLow(long[] arr) {
-        sortByLow(arr, 0, arr.length - 1);
+        sortByLow(arr, 0, arr.length);
     }
 
     public static void sortByHigh(long[] arr) {
-        sortByHigh(arr, 0, arr.length - 1);
+        sortByHigh(arr, 0, arr.length);
     }
 
     public static void sortByLow(long[] arr, int from, int to) {
@@ -37,11 +37,11 @@ public class LongUtil {
     }
 
     public static int findByLow(long[] arr, int low) {
-        return findByLow(arr, low, 0, arr.length - 1);
+        return findByLow(arr, low, 0, arr.length);
     }
 
     public static int findByHigh(long[] arr, int high) {
-        return findByHigh(arr, high, 0, arr.length - 1);
+        return findByHigh(arr, high, 0, arr.length);
     }
 
     public static int findByLow(long[] arr, int low, int from, int to) {
