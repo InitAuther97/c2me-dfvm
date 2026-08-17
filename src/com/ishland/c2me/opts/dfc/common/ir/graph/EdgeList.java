@@ -12,8 +12,6 @@ import java.util.LinkedList;
 
 public class EdgeList implements EdgeAccessor {
 
-    private static final ThreadLocal<LinkedList<LongArrayList>> WORKSPACE_CACHE = ThreadLocal.withInitial(LinkedList::new);
-
     private int size;
     private final ReferenceArrayList<IntList> outgoingEdges = new ReferenceArrayList<>();
     private final ReferenceArrayList<IntList> incomingEdges = new ReferenceArrayList<>();
@@ -170,34 +168,6 @@ public class EdgeList implements EdgeAccessor {
         this.outgoingEdges.removeElements(actualSize - 1, size);
         this.incomingEdges.removeElements(actualSize - 1, size);
         purge();
-    }
-
-    @Override
-    public void walk(int begin, DepthFirstVisitor visitor) {
-        final LongArrayList stack;
-        final var workspace = WORKSPACE_CACHE.get();
-        if (workspace.isEmpty()) {
-            stack = new LongArrayList();
-        } else {
-            stack = workspace.pop();
-        }
-        if (!visitor.enter(begin)) return;
-        stack.push(LongUtil.make(begin, 0));
-        while (!stack.isEmpty()) {
-            final long next = stack.popLong();
-            final int current = LongUtil.getLow(next);
-            final int index = LongUtil.getHigh(next);
-            final var list = getUsages(current);
-            if (index == list.size()) {
-                visitor.leave(current);
-                continue;
-            }
-            stack.push(LongUtil.make(current, index + 1));
-            final int child = list.getInt(index);
-            if (!visitor.enter(child)) continue;
-            stack.push(LongUtil.make(child, 0));
-        }
-        workspace.push(stack);
     }
 
     public void sortOperands(int node, IntComparator comparator) {

@@ -45,7 +45,7 @@ public class CFGHelper {
                 bb[idxBb++] = LongUtil.make(thus, endNode);
                 assert endNode != end || endBlock == -1 : "Multiple edge to end node";
                 if (endNode == end) {
-                    endBlock = idxBb;
+                    endBlock = idxBb - 1;
                 }
                 stack.push(endNode);
             } else {
@@ -57,12 +57,21 @@ public class CFGHelper {
         return endBlock;
     }
 
-    static EdgeAccessor buildCFG(EdgeAccessor control, long[] bb, BitSet mergeBlocks, BitSet splitBlocks, int endBlock) {
+    static int findEndBlock(long[] bb, int end) {
+        for (int i = 0; i < bb.length; i++) {
+            if (LongUtil.getHigh(bb[i]) == end) return i;
+        }
+        return -1;
+    }
+
+    static EdgeAccessor buildCFG(EdgeAccessor control, long[] bb, BitSet mergeBlocks, BitSet splitBlocks, int end) {
         final var cfg = new EdgeList();
         // Sort by begin id to enable quick search
         // Later we use index to build cfg and trees
         cfg.allocate(bb.length);
         LongUtil.sortByLow(bb);
+        // The end block index refers to the sorted array
+        final int endBlock = findEndBlock(bb, end);
 
         // Build CFG
         for (int i = 0; i < bb.length; i++) {
@@ -105,21 +114,25 @@ public class CFGHelper {
             // If an edge "goes back up", it is a back-edge, and the merge is a loop
             final int endAsBegin = LongUtil.findByLow(bb, LongUtil.getHigh(block));
             if (endAsBegin < 0) continue;
-            final int beginIdx = LongUtil.findByLow(bb, LongUtil.getLow(block));
-            if (!dom.isDominatedBy(beginIdx, endAsBegin)) continue;
-            loop.set(i);
+            if (!dom.isDominatedBy(i, endAsBegin)) continue;
+            loop.set(endAsBegin);
         }
     }
 
-    static void collectLoopBlocks(EdgeAccessor cfg, BitSet loops, long[] bb, IntArrayList stack, CFGLoop[] loopArray) {
-        int latchBlockIdx = -1, i = 0;
-        while ((latchBlockIdx = loops.nextSetBit(latchBlockIdx + 1)) != -1) {
-            final long latchBlock = bb[latchBlockIdx];
-            final int beginNode = LongUtil.getHigh(latchBlock);
-            final int headerBlockIdx = LongUtil.findByLow(bb, beginNode);
+    static void collectLoopBlocks(EdgeAccessor cfg, BitSet loops, long[] bb, DomTree dom, IntArrayList stack, CFGLoop[] loopArray) {
+        int headerBlockIdx = -1, i = 0;
+        while ((headerBlockIdx = loops.nextSetBit(headerBlockIdx + 1)) != -1) {
             final var blocks = new BitSet(bb.length);
             blocks.set(headerBlockIdx);
-            stack.push(latchBlockIdx);
+            // Latches are the predecessors of the header dominated by it
+            int latchBlockIdx = -1;
+            final var preds = cfg.getOperands(headerBlockIdx);
+            for (int j = 0; j < preds.size(); j++) {
+                final int pred = preds.getInt(j);
+                if (!dom.isDominatedBy(pred, headerBlockIdx)) continue;
+                if (latchBlockIdx == -1) latchBlockIdx = pred;
+                stack.push(pred);
+            }
             while (!stack.isEmpty()) {
                 final int thus = stack.popInt();
                 if (blocks.get(thus) || thus == headerBlockIdx) continue;

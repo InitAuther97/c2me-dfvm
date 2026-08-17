@@ -14,6 +14,7 @@ public final class AllTests {
                 .register(FloatUtilTest.class)
                 .register(NodeTypeComputationTest.class)
                 .register(CanonicalizerTest.class)
+                .register(LoopRotationTest.class)
                 .run();
         System.exit(failures == 0 ? 0 : 1);
     }

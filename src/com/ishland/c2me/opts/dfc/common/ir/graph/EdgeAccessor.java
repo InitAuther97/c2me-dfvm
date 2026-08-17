@@ -1,10 +1,16 @@
 package com.ishland.c2me.opts.dfc.common.ir.graph;
 
+import com.ishland.c2me.opts.dfc.common.ir.LongUtil;
 import it.unimi.dsi.fastutil.ints.IntList;
+import it.unimi.dsi.fastutil.longs.LongArrayList;
 
+import java.util.LinkedList;
 import java.util.function.IntConsumer;
 
 public interface EdgeAccessor {
+
+    ThreadLocal<LinkedList<LongArrayList>> WORKSPACE_CACHE = ThreadLocal.withInitial(LinkedList::new);
+
     int allocate();
 
     int allocate(int count);
@@ -120,11 +126,6 @@ public interface EdgeAccessor {
         public void compress(IntList mapping, int actualSize) {
             trap();
         }
-
-        @Override
-        public void walk(int begin, DepthFirstVisitor visitor) {
-            delegate.walk(begin, visitor);
-        }
     }
 
     abstract class TransformingImmutable extends Immutable implements EdgeAccessor {
@@ -163,7 +164,32 @@ public interface EdgeAccessor {
         }
     }
 
-    void walk(int begin, DepthFirstVisitor visitor);
+    default void walk(int begin, DepthFirstVisitor visitor) {
+        final LongArrayList stack;
+        final var workspace = WORKSPACE_CACHE.get();
+        if (workspace.isEmpty()) {
+            stack = new LongArrayList();
+        } else {
+            stack = workspace.pop();
+        }
+        if (!visitor.enter(begin)) return;
+        stack.push(LongUtil.make(begin, 0));
+        while (!stack.isEmpty()) {
+            final long next = stack.popLong();
+            final int current = LongUtil.getLow(next);
+            final int index = LongUtil.getHigh(next);
+            final var list = getUsages(current);
+            if (index == list.size()) {
+                visitor.leave(current);
+                continue;
+            }
+            stack.push(LongUtil.make(current, index + 1));
+            final int child = list.getInt(index);
+            if (!visitor.enter(child)) continue;
+            stack.push(LongUtil.make(child, 0));
+        }
+        workspace.push(stack);
+    }
 
     interface DepthFirstVisitor {
         /// @return true if it should skip the nodes' downstream

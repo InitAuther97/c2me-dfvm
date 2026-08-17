@@ -10,7 +10,7 @@ import it.unimi.dsi.fastutil.ints.*;
 
 import java.util.Objects;
 
-public class GVN extends PostRunCanonicalizerPhase implements IntHash.Strategy, HighTierPhase, MidTierPhase {
+public class GVN extends RunCanonicalizerPhase implements IntHash.Strategy, HighTierPhase, MidTierPhase {
 
     private final IrGraph graph;
     private final Int2IntMap globalMap = new Int2IntOpenCustomHashMap(this);

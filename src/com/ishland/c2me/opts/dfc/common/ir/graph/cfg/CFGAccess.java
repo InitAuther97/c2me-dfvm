@@ -100,7 +100,9 @@ public sealed interface CFGAccess {
                 // Build CFG
                 mergeBlocks = new BitSet(basicBlocks.length);
                 splitBlocks = new BitSet(basicBlocks.length);
-                cfg = CFGHelper.buildCFG(graph.getControl(), basicBlocks, mergeBlocks, splitBlocks, endBlock);
+                cfg = CFGHelper.buildCFG(graph.getControl(), basicBlocks, mergeBlocks, splitBlocks, end);
+                // basicBlocks is sorted by now, refresh the end block index
+                endBlock = CFGHelper.findEndBlock(basicBlocks, end);
                 if (max == 1) break;
                 // fallthrough
             case 1:
@@ -127,7 +129,7 @@ public sealed interface CFGAccess {
                 // encountered until we reach the header block
                 final int loopCount = loopHeaders.cardinality();
                 loops = new CFGLoop[loopCount];
-                CFGHelper.collectLoopBlocks(cfg, loopHeaders, basicBlocks, po, loops);
+                CFGHelper.collectLoopBlocks(cfg, loopHeaders, basicBlocks, dom, po, loops);
                 if (max == 4) break;
                 // fallthrough
             case 4:
