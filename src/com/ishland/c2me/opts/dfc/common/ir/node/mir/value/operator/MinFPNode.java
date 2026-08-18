@@ -6,23 +6,46 @@ import com.ishland.c2me.opts.dfc.common.ir.graph.IrGraph;
 import com.ishland.c2me.opts.dfc.common.ir.node.IrNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.ValueOpNode;
 import com.ishland.c2me.opts.dfc.common.ir.phase.scalar.Canonicalizer;
+import com.ishland.c2me.opts.dfc.common.ir.type.DoubleType;
 import com.ishland.c2me.opts.dfc.common.ir.type.FloatType;
 import com.ishland.c2me.opts.dfc.common.ir.type.IrType;
+import com.ishland.c2me.opts.dfc.common.ir.type.util.DoubleUtil;
 import com.ishland.c2me.opts.dfc.common.ir.type.util.FloatUtil;
 
-public enum SqrtFNode implements ValueOpNode, FloatUnaryOp {
-    SQRT_F;
+public enum MinFPNode implements ValueOpNode, FPBinaryOp {
+    MIN_F {
+        @Override
+        public float evaluate32(float left, float right) {
+            return Math.min(left, right);
+        }
+    },
+    MIN_D {
+        @Override
+        public double evaluate64(double first, double second) {
+            return Math.min(first, second);
+        }
+    };
+
+    @Override
+    public boolean isSame(IrNode node) {
+        return node == this;
+    }
 
     @Override
     public IrType initialType() {
-        return FloatType.TOP;
+        return this == MIN_D ? DoubleType.TOP : FloatType.TOP;
     }
 
     @Override
     public IrType compute(IrGraph graph, int id, GraphContext ctx) {
         final var operands = graph.getValue().getOperands(id);
-        final var input = (FloatType) graph.getType(operands.getInt(0));
-        return FloatUtil.sqrt(input);
+        final var first = graph.getType(operands.getInt(0));
+        final var second = graph.getType(operands.getInt(1));
+        if (this == MIN_D) {
+            return DoubleUtil.min((DoubleType) first, (DoubleType) second);
+        } else {
+            return FloatUtil.min((FloatType) first, (FloatType) second);
+        }
     }
 
     @Override
@@ -38,15 +61,5 @@ public enum SqrtFNode implements ValueOpNode, FloatUnaryOp {
     @Override
     public int getCost() {
         return 0;
-    }
-
-    @Override
-    public float evaluate(float input) {
-        return (float) Math.sqrt(input);
-    }
-
-    @Override
-    public boolean isSame(IrNode node) {
-        return node == SQRT_F;
     }
 }

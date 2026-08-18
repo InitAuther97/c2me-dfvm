@@ -7,33 +7,45 @@ import com.ishland.c2me.opts.dfc.common.ir.node.IrNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.ValueOpNode;
 import com.ishland.c2me.opts.dfc.common.ir.phase.scalar.Canonicalizer;
 import com.ishland.c2me.opts.dfc.common.ir.type.DoubleType;
+import com.ishland.c2me.opts.dfc.common.ir.type.FloatType;
 import com.ishland.c2me.opts.dfc.common.ir.type.IrType;
 import com.ishland.c2me.opts.dfc.common.ir.type.util.DoubleUtil;
+import com.ishland.c2me.opts.dfc.common.ir.type.util.FloatUtil;
 
-public enum DivDNode implements ValueOpNode, DoubleBinaryOp {
-    DIV_D;
-
-    @Override
-    public double evaluate(double first, double second) {
-        return first / second;
-    }
+public enum AddFPNode implements ValueOpNode, FPBinaryOp {
+    ADD_F {
+        @Override
+        public float evaluate32(float left, float right) {
+            return left + right;
+        }
+    },
+    ADD_D {
+        @Override
+        public double evaluate64(double first, double second) {
+            return first + second;
+        }
+    };
 
     @Override
     public boolean isSame(IrNode node) {
-        return node == DIV_D;
+        return node == this;
     }
 
     @Override
     public IrType initialType() {
-        return DoubleType.TOP;
+        return this == ADD_D ? DoubleType.TOP : FloatType.TOP;
     }
 
     @Override
     public IrType compute(IrGraph graph, int id, GraphContext ctx) {
         final var operands = graph.getValue().getOperands(id);
-        final var first = (DoubleType) graph.getType(operands.getInt(0));
-        final var second = (DoubleType) graph.getType(operands.getInt(1));
-        return DoubleUtil.div(first, second);
+        final var first = graph.getType(operands.getInt(0));
+        final var second = graph.getType(operands.getInt(1));
+        if (this == ADD_D) {
+            return DoubleUtil.add((DoubleType) first, (DoubleType) second);
+        } else {
+            return FloatUtil.add((FloatType) first, (FloatType) second);
+        }
     }
 
     @Override

@@ -7,32 +7,45 @@ import com.ishland.c2me.opts.dfc.common.ir.node.IrNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.ValueOpNode;
 import com.ishland.c2me.opts.dfc.common.ir.phase.scalar.Canonicalizer;
 import com.ishland.c2me.opts.dfc.common.ir.type.DoubleType;
+import com.ishland.c2me.opts.dfc.common.ir.type.FloatType;
 import com.ishland.c2me.opts.dfc.common.ir.type.IrType;
 import com.ishland.c2me.opts.dfc.common.ir.type.util.DoubleUtil;
+import com.ishland.c2me.opts.dfc.common.ir.type.util.FloatUtil;
 
-public enum SqrtDNode implements ValueOpNode, DoubleUnaryOp {
-    SQRT_D;
-
-    @Override
-    public double evaluate(double input) {
-        return Math.sqrt(input);
-    }
+public enum MaxFPNode implements ValueOpNode, FPBinaryOp {
+    MAX_F {
+        @Override
+        public float evaluate32(float left, float right) {
+            return Math.max(left, right);
+        }
+    },
+    MAX_D {
+        @Override
+        public double evaluate64(double first, double second) {
+            return Math.max(first, second);
+        }
+    };
 
     @Override
     public boolean isSame(IrNode node) {
-        return node == SQRT_D;
+        return node == this;
     }
 
     @Override
     public IrType initialType() {
-        return DoubleType.TOP;
+        return this == MAX_D ? DoubleType.TOP : FloatType.TOP;
     }
 
     @Override
     public IrType compute(IrGraph graph, int id, GraphContext ctx) {
         final var operands = graph.getValue().getOperands(id);
-        final var input = (DoubleType) graph.getType(operands.getInt(0));
-        return DoubleUtil.sqrt(input);
+        final var first = graph.getType(operands.getInt(0));
+        final var second = graph.getType(operands.getInt(1));
+        if (this == MAX_D) {
+            return DoubleUtil.max((DoubleType) first, (DoubleType) second);
+        } else {
+            return FloatUtil.max((FloatType) first, (FloatType) second);
+        }
     }
 
     @Override

@@ -7,23 +7,16 @@ import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.EntryNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.ReturnNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.constant.DoubleConstantNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.constant.IntConstantNode;
-import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.operator.AddDNode;
-import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.operator.AddFNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.operator.AddFPNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.operator.AddINode;
-import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.operator.DivDNode;
-import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.operator.DivFNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.operator.DivFPNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.operator.DivINode;
-import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.operator.MaxDNode;
-import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.operator.MaxFNode;
-import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.operator.MinDNode;
-import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.operator.MinFNode;
-import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.operator.MulDNode;
-import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.operator.MulFNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.operator.MaxFPNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.operator.MinFPNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.operator.MulFPNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.operator.MulINode;
-import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.operator.SqrtDNode;
-import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.operator.SqrtFNode;
-import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.operator.SubDNode;
-import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.operator.SubFNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.operator.SqrtFPNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.operator.SubFPNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.operator.SubINode;
 import com.ishland.c2me.opts.dfc.common.ir.phase.scalar.Canonicalizer;
 import com.ishland.c2me.opts.dfc.common.ir.type.IrType;
@@ -98,22 +91,22 @@ public final class GraphFixture {
     public int idiv(int lhs, int rhs) { return node(DivINode.DIV_I, lhs, rhs); }
 
     // double operators
-    public int dadd(int lhs, int rhs) { return node(AddDNode.ADD_D, lhs, rhs); }
-    public int dsub(int lhs, int rhs) { return node(SubDNode.SUB_D, lhs, rhs); }
-    public int dmul(int lhs, int rhs) { return node(MulDNode.MUL_D, lhs, rhs); }
-    public int ddiv(int lhs, int rhs) { return node(DivDNode.DIV_D, lhs, rhs); }
-    public int dmin(int lhs, int rhs) { return node(MinDNode.MIN_D, lhs, rhs); }
-    public int dmax(int lhs, int rhs) { return node(MaxDNode.MAX_D, lhs, rhs); }
-    public int dsqrt(int input) { return node(SqrtDNode.SQRT_D, input); }
+    public int dadd(int lhs, int rhs) { return node(AddFPNode.ADD_D, lhs, rhs); }
+    public int dsub(int lhs, int rhs) { return node(SubFPNode.SUB_D, lhs, rhs); }
+    public int dmul(int lhs, int rhs) { return node(MulFPNode.MUL_D, lhs, rhs); }
+    public int ddiv(int lhs, int rhs) { return node(DivFPNode.DIV_D, lhs, rhs); }
+    public int dmin(int lhs, int rhs) { return node(MinFPNode.MIN_D, lhs, rhs); }
+    public int dmax(int lhs, int rhs) { return node(MaxFPNode.MAX_D, lhs, rhs); }
+    public int dsqrt(int input) { return node(SqrtFPNode.SQRT_D, input); }
 
     // float operators
-    public int fadd(int lhs, int rhs) { return node(AddFNode.ADD_F, lhs, rhs); }
-    public int fsub(int lhs, int rhs) { return node(SubFNode.SUB_F, lhs, rhs); }
-    public int fmul(int lhs, int rhs) { return node(MulFNode.MUL_F, lhs, rhs); }
-    public int fdiv(int lhs, int rhs) { return node(DivFNode.DIV_F, lhs, rhs); }
-    public int fmin(int lhs, int rhs) { return node(MinFNode.MIN_F, lhs, rhs); }
-    public int fmax(int lhs, int rhs) { return node(MaxFNode.MAX_F, lhs, rhs); }
-    public int fsqrt(int input) { return node(SqrtFNode.SQRT_F, input); }
+    public int fadd(int lhs, int rhs) { return node(AddFPNode.ADD_F, lhs, rhs); }
+    public int fsub(int lhs, int rhs) { return node(SubFPNode.SUB_F, lhs, rhs); }
+    public int fmul(int lhs, int rhs) { return node(MulFPNode.MUL_F, lhs, rhs); }
+    public int fdiv(int lhs, int rhs) { return node(DivFPNode.DIV_F, lhs, rhs); }
+    public int fmin(int lhs, int rhs) { return node(MinFPNode.MIN_F, lhs, rhs); }
+    public int fmax(int lhs, int rhs) { return node(MaxFPNode.MAX_F, lhs, rhs); }
+    public int fsqrt(int input) { return node(SqrtFPNode.SQRT_F, input); }
 
     /// Anchor a node as a value operand of the return node, protecting it
     /// (and its upstream) from dead code elimination.

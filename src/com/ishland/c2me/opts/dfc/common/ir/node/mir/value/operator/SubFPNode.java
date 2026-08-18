@@ -6,24 +6,46 @@ import com.ishland.c2me.opts.dfc.common.ir.graph.IrGraph;
 import com.ishland.c2me.opts.dfc.common.ir.node.IrNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.ValueOpNode;
 import com.ishland.c2me.opts.dfc.common.ir.phase.scalar.Canonicalizer;
+import com.ishland.c2me.opts.dfc.common.ir.type.DoubleType;
 import com.ishland.c2me.opts.dfc.common.ir.type.FloatType;
 import com.ishland.c2me.opts.dfc.common.ir.type.IrType;
+import com.ishland.c2me.opts.dfc.common.ir.type.util.DoubleUtil;
 import com.ishland.c2me.opts.dfc.common.ir.type.util.FloatUtil;
 
-public enum MaxFNode implements ValueOpNode, FloatBinaryOp {
-    MAX_F;
+public enum SubFPNode implements ValueOpNode, FPBinaryOp {
+    SUB_F {
+        @Override
+        public float evaluate32(float left, float right) {
+            return left - right;
+        }
+    },
+    SUB_D {
+        @Override
+        public double evaluate64(double first, double second) {
+            return first - second;
+        }
+    };
+
+    @Override
+    public boolean isSame(IrNode node) {
+        return node == this;
+    }
 
     @Override
     public IrType initialType() {
-        return FloatType.TOP;
+        return this == SUB_D ? DoubleType.TOP : FloatType.TOP;
     }
 
     @Override
     public IrType compute(IrGraph graph, int id, GraphContext ctx) {
         final var operands = graph.getValue().getOperands(id);
-        final var first = (FloatType) graph.getType(operands.getInt(0));
-        final var second = (FloatType) graph.getType(operands.getInt(1));
-        return FloatUtil.max(first, second);
+        final var first = graph.getType(operands.getInt(0));
+        final var second = graph.getType(operands.getInt(1));
+        if (this == SUB_D) {
+            return DoubleUtil.sub((DoubleType) first, (DoubleType) second);
+        } else {
+            return FloatUtil.sub((FloatType) first, (FloatType) second);
+        }
     }
 
     @Override
@@ -39,15 +61,5 @@ public enum MaxFNode implements ValueOpNode, FloatBinaryOp {
     @Override
     public int getCost() {
         return 0;
-    }
-
-    @Override
-    public float evaluate(float left, float right) {
-        return Math.max(left, right);
-    }
-
-    @Override
-    public boolean isSame(IrNode node) {
-        return node == MAX_F;
     }
 }
