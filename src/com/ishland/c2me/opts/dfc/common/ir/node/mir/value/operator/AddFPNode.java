@@ -13,18 +13,7 @@ import com.ishland.c2me.opts.dfc.common.ir.type.util.DoubleUtil;
 import com.ishland.c2me.opts.dfc.common.ir.type.util.FloatUtil;
 
 public enum AddFPNode implements ValueOpNode, FPBinaryOp {
-    ADD_F {
-        @Override
-        public float evaluate32(float left, float right) {
-            return left + right;
-        }
-    },
-    ADD_D {
-        @Override
-        public double evaluate64(double first, double second) {
-            return first + second;
-        }
-    };
+    ADD_F, ADD_D;
 
     @Override
     public boolean isSame(IrNode node) {
@@ -61,5 +50,15 @@ public enum AddFPNode implements ValueOpNode, FPBinaryOp {
     @Override
     public int getCost() {
         return 0;
+    }
+
+    @Override
+    public float evaluate32(float left, float right) {
+        return left + right;
+    }
+
+    @Override
+    public double evaluate64(double left, double right) {
+        return left + right;
     }
 }

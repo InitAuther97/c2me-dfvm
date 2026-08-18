@@ -13,18 +13,7 @@ import com.ishland.c2me.opts.dfc.common.ir.type.util.DoubleUtil;
 import com.ishland.c2me.opts.dfc.common.ir.type.util.FloatUtil;
 
 public enum MaxFPNode implements ValueOpNode, FPBinaryOp {
-    MAX_F {
-        @Override
-        public float evaluate32(float left, float right) {
-            return Math.max(left, right);
-        }
-    },
-    MAX_D {
-        @Override
-        public double evaluate64(double first, double second) {
-            return Math.max(first, second);
-        }
-    };
+    MAX_F, MAX_D;
 
     @Override
     public boolean isSame(IrNode node) {
@@ -61,5 +50,15 @@ public enum MaxFPNode implements ValueOpNode, FPBinaryOp {
     @Override
     public int getCost() {
         return 0;
+    }
+
+    @Override
+    public float evaluate32(float left, float right) {
+        return Math.max(left, right);
+    }
+
+    @Override
+    public double evaluate64(double left, double right) {
+        return Math.max(left, right);
     }
 }

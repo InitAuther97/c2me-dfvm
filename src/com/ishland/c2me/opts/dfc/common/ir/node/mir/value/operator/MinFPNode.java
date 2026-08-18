@@ -13,18 +13,7 @@ import com.ishland.c2me.opts.dfc.common.ir.type.util.DoubleUtil;
 import com.ishland.c2me.opts.dfc.common.ir.type.util.FloatUtil;
 
 public enum MinFPNode implements ValueOpNode, FPBinaryOp {
-    MIN_F {
-        @Override
-        public float evaluate32(float left, float right) {
-            return Math.min(left, right);
-        }
-    },
-    MIN_D {
-        @Override
-        public double evaluate64(double first, double second) {
-            return Math.min(first, second);
-        }
-    };
+    MIN_F, MIN_D;
 
     @Override
     public boolean isSame(IrNode node) {
@@ -61,5 +50,15 @@ public enum MinFPNode implements ValueOpNode, FPBinaryOp {
     @Override
     public int getCost() {
         return 0;
+    }
+
+    @Override
+    public float evaluate32(float left, float right) {
+        return Math.min(left, right);
+    }
+
+    @Override
+    public double evaluate64(double left, double right) {
+        return Math.min(left, right);
     }
 }
