@@ -80,7 +80,7 @@ public class LoopRotation extends RunCanonicalizerPhase implements SchedulePhase
             final boolean firstExits = loop.exits().get(firstD);
             final boolean secondExits = loop.exits().get(secondD);
             // If none exit or both exit, disqualify
-            Assertions.assertTrue(firstExits && secondExits, "Cannot be both exit and exit");
+            Assertions.assertTrue(!(firstExits && secondExits), "Cannot be both exit and exit");
             if (!firstExits && !secondExits) continue;
             final int exitBlock = firstExits ? firstD : secondD;
             final int backEdge = loop.latch();

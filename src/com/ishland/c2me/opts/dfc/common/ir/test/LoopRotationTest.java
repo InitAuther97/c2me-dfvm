@@ -32,6 +32,8 @@ public class LoopRotationTest {
         final var value = graph.getValue();
         final int entry = graph.addNode(new EntryNode("test"));
         final int ret = graph.addNode(ReturnNode.RET);
+        //                     v----------------------^
+        // Begin -> Entry -> Merge -> if -> true -> merge
         control.appendEdge(ctx.getProgramStart(), entry);
         control.appendEdge(ret, ctx.getProgramEnd());
 
