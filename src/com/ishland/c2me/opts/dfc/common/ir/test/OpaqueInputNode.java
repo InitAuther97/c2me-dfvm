@@ -8,6 +8,8 @@ import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.ValueOpNode;
 import com.ishland.c2me.opts.dfc.common.ir.phase.scalar.Canonicalizer;
 import com.ishland.c2me.opts.dfc.common.ir.type.IrType;
 
+import java.util.Objects;
+
 /// A value node with a fixed type that never optimizes, standing in for
 /// inputs whose value is not known at compile time (e.g. noise functions).
 public record OpaqueInputNode(IrType type) implements ValueOpNode {
@@ -29,7 +31,7 @@ public record OpaqueInputNode(IrType type) implements ValueOpNode {
 
     @Override
     public boolean isEqual(IrNode that) {
-        return that instanceof OpaqueInputNode;
+        return that instanceof OpaqueInputNode(IrType t) && Objects.equals(type, t);
     }
 
     @Override

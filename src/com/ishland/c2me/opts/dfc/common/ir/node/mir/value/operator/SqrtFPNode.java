@@ -16,11 +16,6 @@ public enum SqrtFPNode implements ValueOpNode, FPUnaryOp {
     SQRT_F, SQRT_D;
 
     @Override
-    public boolean isSame(IrNode node) {
-        return node == this;
-    }
-
-    @Override
     public IrType initialType() {
         return this == SQRT_D ? DoubleType.TOP : FloatType.TOP;
     }

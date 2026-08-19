@@ -49,11 +49,6 @@ public enum DivINode implements ValueOpNode, IntCommonOp {
     }
 
     @Override
-    public boolean isSame(IrNode node) {
-        return false;
-    }
-
-    @Override
     public int getCost() {
         return 16;
     }

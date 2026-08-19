@@ -16,11 +16,6 @@ public enum MulFPNode implements ValueOpNode, FPBinaryOp {
     MUL_F, MUL_D;
 
     @Override
-    public boolean isSame(IrNode node) {
-        return node == this;
-    }
-
-    @Override
     public IrType initialType() {
         return this == MUL_D ? DoubleType.TOP : FloatType.TOP;
     }

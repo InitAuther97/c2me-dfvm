@@ -29,7 +29,7 @@ public interface ValueOpNode extends MIRNode {
 
     @Override
     default boolean isEqual(IrNode that) {
-        return true;
+        return that == this;
     }
 
     default boolean isPure(IrGraph graph, int id) {

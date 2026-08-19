@@ -16,11 +16,6 @@ public enum DivFPNode implements ValueOpNode, FPBinaryOp {
     DIV_F, DIV_D;
 
     @Override
-    public boolean isSame(IrNode node) {
-        return node == this;
-    }
-
-    @Override
     public IrType initialType() {
         return this == DIV_D ? DoubleType.TOP : FloatType.TOP;
     }

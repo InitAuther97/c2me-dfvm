@@ -3,7 +3,6 @@ package com.ishland.c2me.opts.dfc.common.ir.node.mir.value.operator;
 import com.ishland.c2me.opts.dfc.common.ir.GraphContext;
 import com.ishland.c2me.opts.dfc.common.ir.export.GraphBuilder;
 import com.ishland.c2me.opts.dfc.common.ir.graph.IrGraph;
-import com.ishland.c2me.opts.dfc.common.ir.node.IrNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.ValueOpNode;
 import com.ishland.c2me.opts.dfc.common.ir.phase.scalar.Canonicalizer;
 import com.ishland.c2me.opts.dfc.common.ir.type.DoubleType;
@@ -14,11 +13,6 @@ import com.ishland.c2me.opts.dfc.common.ir.type.util.FloatUtil;
 
 public enum AddFPNode implements ValueOpNode, FPBinaryOp {
     ADD_F, ADD_D;
-
-    @Override
-    public boolean isSame(IrNode node) {
-        return node == this;
-    }
 
     @Override
     public IrType initialType() {

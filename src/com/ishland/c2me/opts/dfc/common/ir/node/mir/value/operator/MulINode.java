@@ -32,11 +32,6 @@ public enum MulINode implements ValueOpNode, IntAddMulCommonOp {
     }
 
     @Override
-    public boolean isSame(IrNode node) {
-        return node == MUL_I;
-    }
-
-    @Override
     public int evaluate(int left, int right) {
         return left * right;
     }

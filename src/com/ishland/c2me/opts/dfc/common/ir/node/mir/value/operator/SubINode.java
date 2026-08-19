@@ -62,11 +62,6 @@ public enum SubINode implements ValueOpNode, IntCommonOp {
     }
 
     @Override
-    public boolean isSame(IrNode node) {
-        return node == SUB_I;
-    }
-
-    @Override
     public int getCost() {
         return 1;
     }

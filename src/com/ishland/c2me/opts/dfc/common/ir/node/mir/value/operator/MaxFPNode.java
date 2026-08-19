@@ -16,11 +16,6 @@ public enum MaxFPNode implements ValueOpNode, FPBinaryOp {
     MAX_F, MAX_D;
 
     @Override
-    public boolean isSame(IrNode node) {
-        return node == this;
-    }
-
-    @Override
     public IrType initialType() {
         return this == MAX_D ? DoubleType.TOP : FloatType.TOP;
     }

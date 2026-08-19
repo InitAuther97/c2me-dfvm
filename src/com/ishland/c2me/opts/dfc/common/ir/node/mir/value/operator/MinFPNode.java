@@ -16,11 +16,6 @@ public enum MinFPNode implements ValueOpNode, FPBinaryOp {
     MIN_F, MIN_D;
 
     @Override
-    public boolean isSame(IrNode node) {
-        return node == this;
-    }
-
-    @Override
     public IrType initialType() {
         return this == MIN_D ? DoubleType.TOP : FloatType.TOP;
     }

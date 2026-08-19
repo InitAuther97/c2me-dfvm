@@ -52,11 +52,6 @@ public enum RoundFPNode implements ValueOpNode, FPUnaryOp {
     }
 
     @Override
-    public boolean isSame(IrNode node) {
-        return node == this;
-    }
-
-    @Override
     public IrType initialType() {
         return isFloat ? FloatType.TOP : DoubleType.TOP;
     }
