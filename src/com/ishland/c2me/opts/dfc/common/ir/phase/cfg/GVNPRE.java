@@ -108,8 +108,8 @@ public class GVNPRE implements SchedulePhase {
         public boolean enter(int node) {
             final var availOut = this.availOut[node];
             stack.push(scheduling[node]);
-            for (int i = 0; i < stack.size(); i++) {
-                availOut.or(stack.get(i));
+            for (BitSet bitSet : stack) {
+                availOut.or(bitSet);
             }
             return true;
         }
@@ -184,8 +184,10 @@ public class GVNPRE implements SchedulePhase {
 
         @Override
         public boolean enter(int node) {
-            scheduling[node].andNot(scheduledNodes);
-            scheduledNodes.or(scheduling[node]);
+            final var sched = scheduling[node];
+            final var scheduled = scheduledNodes;
+            sched.andNot(scheduled);
+            scheduled.or(sched);
             return true;
         }
 

@@ -15,6 +15,7 @@ public final class AllTests {
                 .register(NodeTypeComputationTest.class)
                 .register(CanonicalizerTest.class)
                 .register(LoopRotationTest.class)
+                .register(GraphVerifierTest.class)
                 .run();
         System.exit(failures == 0 ? 0 : 1);
     }

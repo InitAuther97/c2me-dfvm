@@ -1,8 +1,8 @@
 package com.ishland.c2me.opts.dfc.common.ir.test;
 
-import com.ishland.c2me.opts.dfc.common.ir.type.DoubleType;
-import com.ishland.c2me.opts.dfc.common.ir.type.FloatType;
-import com.ishland.c2me.opts.dfc.common.ir.type.IntegerType;
+import com.ishland.c2me.opts.dfc.common.ir.type.mir.DoubleType;
+import com.ishland.c2me.opts.dfc.common.ir.type.mir.FloatType;
+import com.ishland.c2me.opts.dfc.common.ir.type.mir.IntegerType;
 import com.ishland.c2me.opts.dfc.common.ir.test.framework.Assert;
 
 /// Verifies that operator nodes compute their result type from the operand

@@ -6,8 +6,8 @@ import com.ishland.c2me.opts.dfc.common.ir.graph.IrGraph;
 import com.ishland.c2me.opts.dfc.common.ir.node.IrNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.ValueOpNode;
 import com.ishland.c2me.opts.dfc.common.ir.phase.scalar.Canonicalizer;
-import com.ishland.c2me.opts.dfc.common.ir.type.DoubleType;
-import com.ishland.c2me.opts.dfc.common.ir.type.FloatType;
+import com.ishland.c2me.opts.dfc.common.ir.type.mir.DoubleType;
+import com.ishland.c2me.opts.dfc.common.ir.type.mir.FloatType;
 import com.ishland.c2me.opts.dfc.common.ir.type.IrType;
 import com.ishland.flowsched.util.Assertions;
 

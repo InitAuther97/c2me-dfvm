@@ -9,7 +9,6 @@ import com.ishland.c2me.opts.dfc.common.util.BitSetIterator;
 import com.ishland.flowsched.util.Assertions;
 import it.unimi.dsi.fastutil.Stack;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
-import it.unimi.dsi.fastutil.ints.IntArrays;
 import it.unimi.dsi.fastutil.ints.IntIterator;
 import it.unimi.dsi.fastutil.longs.LongIterator;
 import it.unimi.dsi.fastutil.longs.LongIterators;
@@ -91,7 +90,11 @@ public sealed interface CFGAccess {
                 end = LongUtil.getHigh(program);
                 int bbs = CFGHelper.countBlocks(graph, begin, end, po);
                 basicBlocks = new long[bbs];
-                endBlock = CFGHelper.identifyBasicBlocks(graph, po, visited, begin, end, basicBlocks);
+                CFGHelper.identifyBasicBlocks(graph, po, visited, begin, end, basicBlocks);
+                // Sort by begin id to enable quick search
+                // Later we use index to build cfg and trees
+                LongUtil.sortByLow(basicBlocks);
+                endBlock = LongUtil.findByHigh(basicBlocks, end);
                 Assertions.assertTrue(endBlock != -1, "CFGAccess invariant assertion failed: end block not found");
                 if (max == 0) break;
                 // fallthrough
@@ -235,6 +238,14 @@ public sealed interface CFGAccess {
         public final long getBasicBlock(int bbIdx) {
             Assertions.assertTrue(bbIdx >= 0 && bbIdx < basicBlocks.length, "basic block not found");
             return this.basicBlocks[bbIdx];
+        }
+
+        public final int getBlockIdxForBeginNode(int nodeIdx) {
+            return LongUtil.findByLow(basicBlocks, nodeIdx);
+        }
+
+        public final int getBlockIdxForEndNode(int nodeIdx) {
+            return LongUtil.findByHigh(basicBlocks, nodeIdx);
         }
 
         public LongIterator basicBlockIterator() {

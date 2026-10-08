@@ -1,6 +1,6 @@
 package com.ishland.c2me.opts.dfc.common.ir.test;
 
-import com.ishland.c2me.opts.dfc.common.ir.type.DoubleType;
+import com.ishland.c2me.opts.dfc.common.ir.type.mir.DoubleType;
 import com.ishland.c2me.opts.dfc.common.ir.type.util.DoubleUtil;
 import com.ishland.c2me.opts.dfc.common.ir.test.framework.Assert;
 

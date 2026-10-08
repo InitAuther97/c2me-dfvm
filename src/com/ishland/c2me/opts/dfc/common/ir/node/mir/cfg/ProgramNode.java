@@ -4,7 +4,7 @@ import com.ishland.c2me.opts.dfc.common.ir.GraphContext;
 import com.ishland.c2me.opts.dfc.common.ir.export.GraphBuilder;
 import com.ishland.c2me.opts.dfc.common.ir.graph.IrGraph;
 import com.ishland.c2me.opts.dfc.common.ir.phase.scalar.Canonicalizer;
-import com.ishland.c2me.opts.dfc.common.ir.type.ControlType;
+import com.ishland.c2me.opts.dfc.common.ir.type.mir.ControlType;
 import com.ishland.c2me.opts.dfc.common.ir.type.IrType;
 
 /// Boundary of the whole graph. A valid graph always contains exactly one

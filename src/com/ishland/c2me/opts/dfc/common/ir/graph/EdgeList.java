@@ -1,14 +1,12 @@
 package com.ishland.c2me.opts.dfc.common.ir.graph;
 
-import com.ishland.c2me.opts.dfc.common.ir.LongUtil;
 import com.ishland.c2me.opts.dfc.common.util.FastCompareIntArrayList;
 import com.ishland.c2me.opts.dfc.common.util.UnmodifiableFastCompareIntArrayList;
 import com.ishland.flowsched.util.Assertions;
 import it.unimi.dsi.fastutil.ints.*;
-import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.objects.ReferenceArrayList;
 
-import java.util.LinkedList;
+import java.util.NoSuchElementException;
 
 public class EdgeList implements EdgeAccessor {
 
@@ -16,7 +14,10 @@ public class EdgeList implements EdgeAccessor {
     private final ReferenceArrayList<IntList> outgoingEdges = new ReferenceArrayList<>();
     private final ReferenceArrayList<IntList> incomingEdges = new ReferenceArrayList<>();
 
-    private static IntList getOrCreate(ReferenceArrayList<IntList> list, int id) {
+    private IntList getOrCreate(ReferenceArrayList<IntList> list, int id) {
+        if (id >= size) {
+            throw new NoSuchElementException();
+        }
         final var result = list.get(id);
         if (result != IntLists.EMPTY_LIST) {
             return result;
@@ -118,11 +119,39 @@ public class EdgeList implements EdgeAccessor {
     }
 
     @Override
+    public void insertEdgeMiddleman(int from, int to, int mid) {
+        final var list1 = getOrCreate(outgoingEdges, from);
+        final var list2 = getOrCreate(incomingEdges, to);
+        final var list3 = getOrCreate(outgoingEdges, mid);
+        final var list4 = getOrCreate(incomingEdges, mid);
+        final int idx1 = list1.indexOf(to);
+        final int idx2 = list2.indexOf(from);
+        list1.set(idx1, mid);
+        list2.set(idx2, mid);
+        list3.add(to);
+        list4.add(from);
+    }
+
+    @Override
     public void insertEdge(int node, int index, int operand) {
         final var list1 = getOrCreate(incomingEdges, node);
         final var list2 = getOrCreate(outgoingEdges, operand);
         list1.add(index, operand);
         list2.add(node);
+    }
+
+    @Override
+    public void bulkReplaceSrc(int node, Int2IntFunction replace) {
+        final var list1 = getOrCreate(incomingEdges, node);
+        for (int i = 0; i < list1.size(); i++) {
+            final int op = list1.getInt(i);
+            final int replacement = replace.getOrDefault(op, op);
+            final var list2 = getOrCreate(outgoingEdges, op);
+            final var list3 = getOrCreate(outgoingEdges, replacement);
+            list1.set(i, replacement);
+            list2.rem(node);
+            list3.add(node);
+        }
     }
 
     @Override

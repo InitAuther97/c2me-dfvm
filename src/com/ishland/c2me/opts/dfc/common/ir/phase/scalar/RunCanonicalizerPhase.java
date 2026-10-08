@@ -13,4 +13,8 @@ public abstract class RunCanonicalizerPhase implements OptimizationPhase {
     protected void enqueue(int i) {
         canonicalizer.addToWorkQueue(i);
     }
+
+    protected void canonicalize() {
+        canonicalizer.run();
+    }
 }

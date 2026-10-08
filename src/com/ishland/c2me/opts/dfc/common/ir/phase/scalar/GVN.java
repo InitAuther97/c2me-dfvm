@@ -31,9 +31,7 @@ public class GVN extends RunCanonicalizerPhase implements IntHash.Strategy, High
      */
     @Override
     public void run() {
-        final var control = graph.getControl();
         final var value = graph.getValue();
-        final var memory = graph.getMemory();
         for (int i = 0; i < graph.countPrograms(); i++) {
             final long program = graph.getProgramAt(i);
             final int begin = (int) (program >>> 32);

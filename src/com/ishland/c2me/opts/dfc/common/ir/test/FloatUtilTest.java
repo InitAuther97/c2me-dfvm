@@ -1,6 +1,6 @@
 package com.ishland.c2me.opts.dfc.common.ir.test;
 
-import com.ishland.c2me.opts.dfc.common.ir.type.FloatType;
+import com.ishland.c2me.opts.dfc.common.ir.type.mir.FloatType;
 import com.ishland.c2me.opts.dfc.common.ir.type.util.FloatUtil;
 import com.ishland.c2me.opts.dfc.common.ir.test.framework.Assert;
 

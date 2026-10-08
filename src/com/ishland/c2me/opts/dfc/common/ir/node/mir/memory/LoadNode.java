@@ -8,7 +8,7 @@ import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.ValueOpNode;
 import com.ishland.c2me.opts.dfc.common.ir.phase.scalar.Canonicalizer;
 import com.ishland.c2me.opts.dfc.common.ir.type.FormalType;
 import com.ishland.c2me.opts.dfc.common.ir.type.IrType;
-import com.ishland.c2me.opts.dfc.common.ir.type.MemoryType;
+import com.ishland.c2me.opts.dfc.common.ir.type.mir.MemoryType;
 
 public enum LoadNode implements MemOpNode, ValueOpNode {
 

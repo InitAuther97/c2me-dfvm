@@ -1,5 +1,7 @@
-package com.ishland.c2me.opts.dfc.common.ir.type;
+package com.ishland.c2me.opts.dfc.common.ir.type.mir;
 
+import com.ishland.c2me.opts.dfc.common.ir.type.IrType;
+import com.ishland.c2me.opts.dfc.common.ir.type.TypeRegistry;
 import com.ishland.flowsched.util.Assertions;
 
 public class DoubleType extends NumericType {

@@ -5,7 +5,7 @@ import com.ishland.c2me.opts.dfc.common.ir.graph.IrGraph;
 import com.ishland.c2me.opts.dfc.common.ir.node.IrNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.constant.IntConstantNode;
 import com.ishland.c2me.opts.dfc.common.ir.phase.scalar.Canonicalizer;
-import com.ishland.c2me.opts.dfc.common.ir.type.IntegerType;
+import com.ishland.c2me.opts.dfc.common.ir.type.mir.IntegerType;
 
 public interface IntAddMulCommonOp extends IntCommonOp {
     int getUnitForOp();

@@ -4,11 +4,15 @@ import com.ishland.c2me.opts.dfc.common.ir.GraphContext;
 import com.ishland.c2me.opts.dfc.common.ir.export.GraphBuilder;
 import com.ishland.c2me.opts.dfc.common.ir.graph.IrGraph;
 import com.ishland.c2me.opts.dfc.common.ir.graph.value.NodeState;
+import com.ishland.c2me.opts.dfc.common.ir.node.mir.SelectionNode;
 import com.ishland.c2me.opts.dfc.common.ir.phase.scalar.Canonicalizer;
-import com.ishland.c2me.opts.dfc.common.ir.type.BranchType;
-import com.ishland.c2me.opts.dfc.common.ir.type.ControlLike;
+import com.ishland.c2me.opts.dfc.common.ir.type.mir.BranchType;
+import com.ishland.c2me.opts.dfc.common.ir.type.mir.ControlLike;
 import com.ishland.c2me.opts.dfc.common.ir.type.IrType;
 
+/// Joins two predecessor blocks and starts the merged block: a MergeNode
+/// has exactly two control operands, both {@link BeginBlockNode}s, and like
+/// every block begin, exactly one control edge to its own block end.
 public enum MergeNode implements EndBlockNode, BeginBlockNode {
 
     MERGE;
@@ -42,12 +46,13 @@ public enum MergeNode implements EndBlockNode, BeginBlockNode {
     public boolean optimize(IrGraph graph, int self, Canonicalizer canonicalizer, GraphContext ctx) {
         final var control = graph.getControl();
         final var usages = control.getUsages(self);
-
         // Check if we have any phi node or if we're already dead
         // This is the signal that we can be eliminated
-        // In every case the elimination of Merge depends on the elimination of Phi
-        // TODO: note that this may create invalid state after GCM.
-        if (usages.size() != 1) return false;
+        for (int i = 0; i < usages.size(); i++) {
+            final var node = graph.getNode(usages.getInt(i));
+            if (SelectionNode.isBranchSelection(node))
+                return false;
+        }
 
         // We don't have any Phi node, so it is safe to delete ourselves.
         // Move downstream to Merge's living parent.

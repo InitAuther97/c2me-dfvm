@@ -1,6 +1,7 @@
 package com.ishland.c2me.opts.dfc.common.ir.graph;
 
 import com.ishland.c2me.opts.dfc.common.ir.LongUtil;
+import it.unimi.dsi.fastutil.ints.Int2IntFunction;
 import it.unimi.dsi.fastutil.ints.IntList;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 
@@ -28,8 +29,12 @@ public interface EdgeAccessor {
     void addEdgePair(int from, int idx, int to, int idx2);
 
     void replaceEdge(int node, int originalOp, int newOp);
+    
+    void insertEdgeMiddleman(int from, int to, int mid);
 
     void insertEdge(int node, int index, int operand);
+
+    void bulkReplaceSrc(int node, Int2IntFunction replace);
 
     default boolean isOrphan(int node) {
         return getUsages(node).isEmpty();
@@ -108,7 +113,17 @@ public interface EdgeAccessor {
         }
 
         @Override
+        public void insertEdgeMiddleman(int from, int to, int mid) {
+            trap();
+        }
+
+        @Override
         public void insertEdge(int node, int index, int operand) {
+            trap();
+        }
+
+        @Override
+        public void bulkReplaceSrc(int node, Int2IntFunction replace) {
             trap();
         }
 

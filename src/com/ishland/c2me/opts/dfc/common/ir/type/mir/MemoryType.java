@@ -1,4 +1,7 @@
-package com.ishland.c2me.opts.dfc.common.ir.type;
+package com.ishland.c2me.opts.dfc.common.ir.type.mir;
+
+import com.ishland.c2me.opts.dfc.common.ir.type.IrType;
+import com.ishland.c2me.opts.dfc.common.ir.type.TypeRegistry;
 
 public class MemoryType extends IrType {
     private static final byte TYPE_MEMORY = TypeRegistry.register(MemoryType.class);

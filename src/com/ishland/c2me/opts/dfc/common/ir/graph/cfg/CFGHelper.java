@@ -25,7 +25,7 @@ public class CFGHelper {
         return size;
     }
 
-    static int identifyBasicBlocks(IrGraph graph, IntArrayList stack, BitSet visited, int begin, int end, long[] bb) {
+    static void identifyBasicBlocks(IrGraph graph, IntArrayList stack, BitSet visited, int begin, int end, long[] bb) {
         // Collect basic blocks
         // Note that a back-edge is also a basic block
         int idxBb = 0, endBlock = -1;
@@ -54,7 +54,6 @@ public class CFGHelper {
             }
         }
         visited.clear();
-        return endBlock;
     }
 
     static int findEndBlock(long[] bb, int end) {
@@ -66,10 +65,7 @@ public class CFGHelper {
 
     static EdgeAccessor buildCFG(EdgeAccessor control, long[] bb, BitSet mergeBlocks, BitSet splitBlocks, int end) {
         final var cfg = new EdgeList();
-        // Sort by begin id to enable quick search
-        // Later we use index to build cfg and trees
         cfg.allocate(bb.length);
-        LongUtil.sortByLow(bb);
         // The end block index refers to the sorted array
         final int endBlock = findEndBlock(bb, end);
 

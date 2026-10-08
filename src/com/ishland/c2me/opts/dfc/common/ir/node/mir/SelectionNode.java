@@ -5,8 +5,10 @@ import com.ishland.c2me.opts.dfc.common.ir.export.GraphBuilder;
 import com.ishland.c2me.opts.dfc.common.ir.graph.EdgeAccessor;
 import com.ishland.c2me.opts.dfc.common.ir.graph.IrGraph;
 import com.ishland.c2me.opts.dfc.common.ir.node.IrNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.mir.memory.MemPhiNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.branch.PhiNode;
 import com.ishland.c2me.opts.dfc.common.ir.phase.scalar.Canonicalizer;
-import com.ishland.c2me.opts.dfc.common.ir.type.BranchType;
+import com.ishland.c2me.opts.dfc.common.ir.type.mir.BranchType;
 import com.ishland.c2me.opts.dfc.common.ir.type.FormalType;
 import com.ishland.c2me.opts.dfc.common.ir.type.IrType;
 
@@ -16,6 +18,10 @@ public abstract class SelectionNode implements MIRNode {
 
     protected BranchType getBranchType(IrGraph graph, int id) {
         return (BranchType) graph.getType(graph.getControl().getOperands(id).getInt(0));
+    }
+
+    public static boolean isBranchSelection(IrNode node) {
+        return node == PhiNode.PHI || node == MemPhiNode.PHI;
     }
 
     @Override

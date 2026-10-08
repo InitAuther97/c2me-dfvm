@@ -1,6 +1,6 @@
 package com.ishland.c2me.opts.dfc.common.ir.test;
 
-import com.ishland.c2me.opts.dfc.common.ir.type.IntegerType;
+import com.ishland.c2me.opts.dfc.common.ir.type.mir.IntegerType;
 import com.ishland.c2me.opts.dfc.common.ir.type.util.IntUtil;
 import com.ishland.c2me.opts.dfc.common.ir.test.framework.Assert;
 

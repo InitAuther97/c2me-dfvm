@@ -5,12 +5,16 @@ import com.ishland.c2me.opts.dfc.common.ir.export.GraphBuilder;
 import com.ishland.c2me.opts.dfc.common.ir.graph.IrGraph;
 import com.ishland.c2me.opts.dfc.common.ir.node.IrNode;
 import com.ishland.c2me.opts.dfc.common.ir.phase.scalar.Canonicalizer;
-import com.ishland.c2me.opts.dfc.common.ir.type.BooleanType;
-import com.ishland.c2me.opts.dfc.common.ir.type.BranchType;
-import com.ishland.c2me.opts.dfc.common.ir.type.ControlLike;
+import com.ishland.c2me.opts.dfc.common.ir.type.mir.BooleanType;
+import com.ishland.c2me.opts.dfc.common.ir.type.mir.BranchType;
+import com.ishland.c2me.opts.dfc.common.ir.type.mir.ControlLike;
 import com.ishland.c2me.opts.dfc.common.ir.type.IrType;
 import com.ishland.flowsched.util.Assertions;
 
+/// Ends a block with a conditional branch on its single data operand. Has
+/// exactly two control successors, a {@link BranchBeginNode#TRUE} and a
+/// {@link BranchBeginNode#FALSE} in that order, and exactly one control
+/// operand: the {@link BeginBlockNode} starting its block.
 public enum IfBranchNode implements EndBlockNode {
 
     BRANCH;

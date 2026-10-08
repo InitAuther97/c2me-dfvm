@@ -5,10 +5,13 @@ import com.ishland.c2me.opts.dfc.common.ir.export.GraphBuilder;
 import com.ishland.c2me.opts.dfc.common.ir.graph.IrGraph;
 import com.ishland.c2me.opts.dfc.common.ir.node.IrNode;
 import com.ishland.c2me.opts.dfc.common.ir.phase.scalar.Canonicalizer;
-import com.ishland.c2me.opts.dfc.common.ir.type.BranchType;
-import com.ishland.c2me.opts.dfc.common.ir.type.ControlType;
+import com.ishland.c2me.opts.dfc.common.ir.type.mir.BranchType;
+import com.ishland.c2me.opts.dfc.common.ir.type.mir.ControlType;
 import com.ishland.c2me.opts.dfc.common.ir.type.IrType;
 
+/// Starts one arm of an {@link IfBranchNode}. Its only control operand is
+/// that IfBranchNode, occupying usage slot 0 for {@link #TRUE} and slot 1
+/// for {@link #FALSE}.
 public enum BranchBeginNode implements BeginBlockNode {
     TRUE((byte) 0b01), FALSE((byte) 0b10);
 
