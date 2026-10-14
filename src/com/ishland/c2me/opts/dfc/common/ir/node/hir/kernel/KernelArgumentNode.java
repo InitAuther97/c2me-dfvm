@@ -6,16 +6,24 @@ import com.ishland.c2me.opts.dfc.common.ir.graph.IrGraph;
 import com.ishland.c2me.opts.dfc.common.ir.node.IrNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.hir.HIRNode;
 import com.ishland.c2me.opts.dfc.common.ir.phase.scalar.Canonicalizer;
-import com.ishland.c2me.opts.dfc.common.ir.stamp.KernelArgument;
 import com.ishland.c2me.opts.dfc.common.ir.type.IrType;
 import com.ishland.c2me.opts.dfc.common.ir.type.mir.IntegerType;
 
-/// An i32 argument passed into a kernel. Each of the 9 arguments describing
-/// the kernel's input volume is represented as a distinct node, identified
-/// by {@link KernelArgument}.
-public record KernelArgumentINode(
-        KernelArgument argument
+import java.util.Objects;
+
+/// An i32 argument passed into a kernel, identified by its name. Kernels can
+/// freely declare their own formats; {@code type} documents the assumed
+/// input type callers must adapt to. Properties over arguments should be
+/// made structural, e.g. {@code Mul(16, arg)} expresses an offset that is a
+/// multiple of 16.
+public record KernelArgumentNode(
+        String name,
+        IrType type
 ) implements HIRNode {
+
+    public KernelArgumentNode(String name) {
+        this(name, IntegerType.TOP);
+    }
 
     @Override
     public void lowerToMid(IrGraph graph, int id, Canonicalizer canonicalizer) {
@@ -23,7 +31,7 @@ public record KernelArgumentINode(
 
     @Override
     public IrType initialType() {
-        return IntegerType.TOP;
+        return type;
     }
 
     @Override
@@ -38,7 +46,7 @@ public record KernelArgumentINode(
 
     @Override
     public boolean isEqual(IrNode that) {
-        return that instanceof KernelArgumentINode(KernelArgument arg) && this.argument == arg;
+        return that instanceof KernelArgumentNode(String n, IrType t) && Objects.equals(name, n) && Objects.equals(type, t);
     }
 
     @Override

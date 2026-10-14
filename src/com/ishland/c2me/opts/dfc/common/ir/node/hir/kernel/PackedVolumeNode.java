@@ -9,7 +9,7 @@ import com.ishland.c2me.opts.dfc.common.ir.phase.scalar.Canonicalizer;
 import com.ishland.c2me.opts.dfc.common.ir.type.IrType;
 import com.ishland.c2me.opts.dfc.common.ir.type.hir.PackedVolumeType;
 
-/// Marker node combining the 9 {@link KernelArgumentINode}s of a volume into
+/// Marker node combining the 9 {@link KernelArgumentNode}s of a volume into
 /// a packed volume of {@link PackedVolumeType}, fed into a kernel call as its
 /// input volume.
 public enum PackedVolumeNode implements HIRNode {

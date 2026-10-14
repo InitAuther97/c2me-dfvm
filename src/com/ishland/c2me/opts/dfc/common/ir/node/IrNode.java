@@ -101,6 +101,10 @@ public interface IrNode {
         return graph.getValue().getOperands(id).getInt(idx);
     }
 
+    static int memory(IrGraph graph, int id, int idx) {
+        return graph.getMemory().getOperands(id).getInt(idx);
+    }
+
     static void transferDownstream(EdgeAccessor edge, int idThis, int idThat, Canonicalizer canonicalizer) {
         final var usages = edge.getUsages(idThis);
         canonicalizer.addToWorkQueue(idThat);
