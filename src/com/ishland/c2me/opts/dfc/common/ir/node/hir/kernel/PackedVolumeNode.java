@@ -1,22 +1,28 @@
-package com.ishland.c2me.opts.dfc.common.ir.node.hir;
+package com.ishland.c2me.opts.dfc.common.ir.node.hir.kernel;
 
 import com.ishland.c2me.opts.dfc.common.ir.GraphContext;
 import com.ishland.c2me.opts.dfc.common.ir.export.GraphBuilder;
 import com.ishland.c2me.opts.dfc.common.ir.graph.IrGraph;
+import com.ishland.c2me.opts.dfc.common.ir.node.IrNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.hir.HIRNode;
 import com.ishland.c2me.opts.dfc.common.ir.phase.scalar.Canonicalizer;
 import com.ishland.c2me.opts.dfc.common.ir.type.IrType;
+import com.ishland.c2me.opts.dfc.common.ir.type.hir.PackedVolumeType;
 
-public record ConstantVolumeNode(
-        int sizeX, int sizeY, int sizeZ,
-        int stepX, int stepY, int stepZ
-) implements HIRNode {
+/// Marker node combining the 9 {@link KernelArgumentINode}s of a volume into
+/// a packed volume of {@link PackedVolumeType}, fed into a kernel call as its
+/// input volume.
+public enum PackedVolumeNode implements HIRNode {
+
+    INSTANCE;
+
     @Override
     public void lowerToMid(IrGraph graph, int id, Canonicalizer canonicalizer) {
     }
 
     @Override
     public IrType initialType() {
-        return null;
+        return PackedVolumeType.PACKED_VOLUME;
     }
 
     @Override
@@ -30,8 +36,12 @@ public record ConstantVolumeNode(
     }
 
     @Override
-    public void export(IrGraph graph, int id, GraphBuilder builder) {
+    public boolean isEqual(IrNode that) {
+        return that instanceof PackedVolumeNode;
+    }
 
+    @Override
+    public void export(IrGraph graph, int id, GraphBuilder builder) {
     }
 
     @Override

@@ -8,7 +8,7 @@ import com.ishland.c2me.opts.dfc.common.ir.type.mir.ControlType;
 import com.ishland.c2me.opts.dfc.common.ir.type.IrType;
 
 /// Boundary of the whole graph. A valid graph always contains exactly one
-/// START and one END: START points to at least one {@link EntryNode}, and
+/// START and one END: START points to at least one {@link KernelNode}, and
 /// every {@link ReturnNode} points to END. Both are part of the control
 /// spine and must never be eliminated (see Canonicalizer).
 public enum ProgramNode implements ControlNode {

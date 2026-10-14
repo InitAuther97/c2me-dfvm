@@ -4,7 +4,7 @@ import com.ishland.c2me.opts.dfc.common.ir.GraphContext;
 import com.ishland.c2me.opts.dfc.common.ir.graph.GraphVerifier;
 import com.ishland.c2me.opts.dfc.common.ir.graph.IrGraph;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.BranchBeginNode;
-import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.EntryNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.KernelNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.IfBranchNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.MergeNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.ReturnNode;
@@ -27,7 +27,7 @@ public class GraphVerifierTest {
         final GraphContext ctx = new GraphContext();
         final IrGraph graph = ctx.getIrGraph();
         final var control = graph.getControl();
-        final int entry = graph.addNode(new EntryNode("test"));
+        final int entry = graph.addNode(new KernelNode("test"));
         final int ret = graph.addNode(ReturnNode.RET);
         final int ifNode = graph.addNode(IfBranchNode.BRANCH);
         final int btTrue = graph.addNode(BranchBeginNode.TRUE);
@@ -94,7 +94,7 @@ public class GraphVerifierTest {
         final GraphContext ctx = new GraphContext();
         final IrGraph graph = ctx.getIrGraph();
         final var control = graph.getControl();
-        final int entry = graph.addNode(new EntryNode("test"));
+        final int entry = graph.addNode(new KernelNode("test"));
         final int ret = graph.addNode(ReturnNode.RET);
         final int ifNode = graph.addNode(IfBranchNode.BRANCH);
         final int btTrue = graph.addNode(BranchBeginNode.TRUE);
@@ -135,7 +135,7 @@ public class GraphVerifierTest {
         final GraphContext ctx = buildStraightLine();
         final IrGraph graph = ctx.getIrGraph();
         // A second entry under START that was never defineProgram-ed
-        final int entry2 = graph.addNode(new EntryNode("other"));
+        final int entry2 = graph.addNode(new KernelNode("other"));
         final int ret2 = graph.addNode(ReturnNode.RET);
         graph.getControl().appendEdge(ctx.getProgramStart(), entry2);
         graph.getControl().appendEdge(entry2, ret2);

@@ -1,14 +1,16 @@
-package com.ishland.c2me.opts.dfc.common.ir.node.hir;
+package com.ishland.c2me.opts.dfc.common.ir.node.hir.kernel;
 
 import com.ishland.c2me.opts.dfc.common.ir.GraphContext;
 import com.ishland.c2me.opts.dfc.common.ir.export.GraphBuilder;
 import com.ishland.c2me.opts.dfc.common.ir.graph.IrGraph;
+import com.ishland.c2me.opts.dfc.common.ir.node.hir.StampNode;
 import com.ishland.c2me.opts.dfc.common.ir.phase.scalar.Canonicalizer;
+import com.ishland.c2me.opts.dfc.common.ir.type.FormalType;
 import com.ishland.c2me.opts.dfc.common.ir.type.IrType;
 
-public enum VariableVolumeNode implements HIRNode {
-    VOLUME;
-
+public record ContainingCellNode(
+        int cellXz, int cellY
+) implements StampNode {
     @Override
     public void lowerToMid(IrGraph graph, int id, Canonicalizer canonicalizer) {
 
@@ -16,7 +18,7 @@ public enum VariableVolumeNode implements HIRNode {
 
     @Override
     public IrType initialType() {
-        return null;
+        return FormalType.TOP;
     }
 
     @Override
@@ -38,4 +40,5 @@ public enum VariableVolumeNode implements HIRNode {
     public int getCost() {
         return 0;
     }
+
 }

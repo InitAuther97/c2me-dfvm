@@ -5,7 +5,7 @@ import com.ishland.c2me.opts.dfc.common.ir.graph.cfg.CFGAccess;
 import com.ishland.c2me.opts.dfc.common.ir.graph.cfg.CFGAccess;
 import com.ishland.c2me.opts.dfc.common.ir.graph.value.NodeState;
 import com.ishland.c2me.opts.dfc.common.ir.node.IrNode;
-import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.EntryNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.KernelNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.ReturnNode;
 import com.ishland.c2me.opts.dfc.common.ir.type.IrType;
 import com.ishland.flowsched.util.Assertions;
@@ -49,7 +49,7 @@ public class IrGraph {
     }
 
     public void defineProgram(int begin, int end) {
-        Assertions.assertTrue(getNode(begin) instanceof EntryNode && getNode(end) == ReturnNode.RET);
+        Assertions.assertTrue(getNode(begin) instanceof KernelNode && getNode(end) == ReturnNode.RET);
         final int idx = LongUtil.findByLow(programs.elements(), begin, 0, programs.size());
         Assertions.assertTrue(idx < 0, "Program starts with %d already exists", begin);
         final int realIdx = ~idx;
