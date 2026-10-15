@@ -1,8 +1,9 @@
-package com.ishland.c2me.opts.dfc.common.ir.node.hir;
+package com.ishland.c2me.opts.dfc.common.ir.node.hir.kernel.border;
 
 import com.ishland.c2me.opts.dfc.common.ir.GraphContext;
 import com.ishland.c2me.opts.dfc.common.ir.export.GraphBuilder;
 import com.ishland.c2me.opts.dfc.common.ir.graph.IrGraph;
+import com.ishland.c2me.opts.dfc.common.ir.node.hir.HIRNode;
 import com.ishland.c2me.opts.dfc.common.ir.phase.scalar.Canonicalizer;
 import com.ishland.c2me.opts.dfc.common.ir.type.IrType;
 
