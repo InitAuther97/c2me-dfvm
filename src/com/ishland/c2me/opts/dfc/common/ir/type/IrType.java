@@ -25,7 +25,8 @@ public abstract class IrType {
         }
 
         if (type == another.type) {
-            return xmeet(another);
+            return getClass().isAssignableFrom(another.getClass())
+                ? another.xmeet(this) : xmeet(another);
         }
 
         // Handle downcast

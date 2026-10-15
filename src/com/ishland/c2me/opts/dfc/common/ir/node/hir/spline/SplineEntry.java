@@ -1,12 +1,15 @@
-package com.ishland.c2me.opts.dfc.common.ir.node.hir;
+package com.ishland.c2me.opts.dfc.common.ir.node.hir.spline;
 
 import com.ishland.c2me.opts.dfc.common.ir.GraphContext;
 import com.ishland.c2me.opts.dfc.common.ir.export.GraphBuilder;
 import com.ishland.c2me.opts.dfc.common.ir.graph.IrGraph;
+import com.ishland.c2me.opts.dfc.common.ir.node.hir.HIRNode;
 import com.ishland.c2me.opts.dfc.common.ir.phase.scalar.Canonicalizer;
 import com.ishland.c2me.opts.dfc.common.ir.type.IrType;
 import com.ishland.c2me.opts.dfc.common.ir.type.mir.FloatType;
 
+/// A single spline point. Its single value operand computes the point's
+/// y-value at the sample context.
 public record SplineEntry(
         float derivative,
         float location
