@@ -6,8 +6,8 @@ import com.ishland.c2me.opts.dfc.common.ir.graph.IrGraph;
 import com.ishland.c2me.opts.dfc.common.ir.node.IrNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.hir.HIRNode;
 import com.ishland.c2me.opts.dfc.common.ir.phase.scalar.Canonicalizer;
+import com.ishland.c2me.opts.dfc.common.ir.type.FormalType;
 import com.ishland.c2me.opts.dfc.common.ir.type.IrType;
-import com.ishland.c2me.opts.dfc.common.ir.type.mir.FloatType;
 
 /// Invokes the kernel marked as callee by the memory edge from a
 /// {@link KernelDescriptorNode}, passed as this node's first memory operand.
@@ -16,7 +16,8 @@ import com.ishland.c2me.opts.dfc.common.ir.type.mir.FloatType;
 /// invocation abstracts a shape-changing then computing operation, and exists
 /// only at HIR: it lowers to using an array as a buffer, calling the kernel
 /// once to prefill required data, and converting the invocation in every lane
-/// to reading the array at the specified location then computing.
+/// to reading the array at the specified location then computing. Its type
+/// is deduced from its callee during computation (FormalType.TOP until then).
 public enum KernelInvokeNode implements HIRNode {
 
     INVOKE;
@@ -27,7 +28,7 @@ public enum KernelInvokeNode implements HIRNode {
 
     @Override
     public IrType initialType() {
-        return FloatType.TOP;
+        return FormalType.TOP;
     }
 
     @Override

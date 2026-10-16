@@ -6,13 +6,14 @@ import com.ishland.c2me.opts.dfc.common.ir.graph.IrGraph;
 import com.ishland.c2me.opts.dfc.common.ir.node.IrNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.hir.HIRNode;
 import com.ishland.c2me.opts.dfc.common.ir.phase.scalar.Canonicalizer;
+import com.ishland.c2me.opts.dfc.common.ir.type.FormalType;
 import com.ishland.c2me.opts.dfc.common.ir.type.IrType;
-import com.ishland.c2me.opts.dfc.common.ir.type.mir.FloatType;
 
 import java.util.Objects;
 
 /// The descriptor of a kernel: declares the kernel's name and the assumed
-/// return value type, used as this node's initial type. The actual return
+/// return value type (FormalType.TOP by default), used as this node's
+/// initial type. The actual return
 /// type is solved from the value fed into the ReturnNode of the program whose
 /// entry is linked from this descriptor (driven by
 /// {@link com.ishland.c2me.opts.dfc.common.ir.phase.hir.HIRCanonicalizationPhase}).
@@ -27,7 +28,7 @@ public record KernelDescriptorNode(
 ) implements HIRNode {
 
     public KernelDescriptorNode(String name) {
-        this(name, FloatType.TOP);
+        this(name, FormalType.TOP);
     }
 
     @Override
