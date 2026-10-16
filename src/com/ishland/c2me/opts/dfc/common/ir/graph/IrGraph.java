@@ -60,7 +60,7 @@ public class IrGraph {
     public int getProgramEnd(int begin) {
         final int idx = LongUtil.findByLow(programs.elements(), begin, 0, programs.size());
         Assertions.assertTrue(idx >= 0, "Program starts with %d not found", begin);
-        return LongUtil.getLow(programs.getLong(idx));
+        return LongUtil.getHigh(programs.getLong(idx));
     }
 
     public int countPrograms() {

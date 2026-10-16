@@ -10,8 +10,6 @@ import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.constant.FloatConstant
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.operator.AddFPNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.operator.MulFPNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.operator.SubFPNode;
-import com.ishland.c2me.opts.dfc.common.ir.phase.HighTierPhase;
-import com.ishland.c2me.opts.dfc.common.ir.phase.scalar.RunCanonicalizerPhase;
 import com.ishland.flowsched.util.Assertions;
 import it.unimi.dsi.fastutil.ints.IntList;
 
@@ -25,7 +23,7 @@ import it.unimi.dsi.fastutil.ints.IntList;
 /// out-of-range inputs, which short-circuit on a zero derivative, so the
 /// spline is replaced by the shared value directly. This is bit-identical
 /// up to the sign of zero, as the in-range evaluation normalizes -0.0.
-public class SplineSimplifyPhase extends RunCanonicalizerPhase implements HighTierPhase {
+public class SplineSimplifyPhase extends HIRCanonicalizationPhase {
 
     private final GraphContext ctx;
 

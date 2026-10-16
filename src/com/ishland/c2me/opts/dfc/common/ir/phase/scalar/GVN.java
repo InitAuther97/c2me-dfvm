@@ -1,6 +1,7 @@
 package com.ishland.c2me.opts.dfc.common.ir.phase.scalar;
 
 import com.ishland.c2me.opts.dfc.common.ir.GraphContext;
+import com.ishland.c2me.opts.dfc.common.ir.LongUtil;
 import com.ishland.c2me.opts.dfc.common.ir.graph.RPOIterator;
 import com.ishland.c2me.opts.dfc.common.ir.graph.value.GraphUtil;
 import com.ishland.c2me.opts.dfc.common.ir.graph.IrGraph;
@@ -34,8 +35,8 @@ public class GVN extends RunCanonicalizerPhase implements IntHash.Strategy, High
         final var value = graph.getValue();
         for (int i = 0; i < graph.countPrograms(); i++) {
             final long program = graph.getProgramAt(i);
-            final int begin = (int) (program >>> 32);
-            final int end = (int) program;
+            final int begin = LongUtil.getLow(program);
+            final int end = LongUtil.getHigh(program);
             final var rpo = new RPOIterator(value, begin, end);
             while (rpo.hasNext()) {
                 final int node = rpo.nextInt();

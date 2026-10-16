@@ -1,24 +1,33 @@
-package com.ishland.c2me.opts.dfc.common.ir.node.mir.value.kernel;
+package com.ishland.c2me.opts.dfc.common.ir.node.hir.kernel;
 
 import com.ishland.c2me.opts.dfc.common.ir.GraphContext;
 import com.ishland.c2me.opts.dfc.common.ir.export.GraphBuilder;
 import com.ishland.c2me.opts.dfc.common.ir.graph.IrGraph;
-import com.ishland.c2me.opts.dfc.common.ir.node.IrNode;
-import com.ishland.c2me.opts.dfc.common.ir.node.mir.MIRNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.hir.HIRNode;
 import com.ishland.c2me.opts.dfc.common.ir.phase.scalar.Canonicalizer;
 import com.ishland.c2me.opts.dfc.common.ir.type.IrType;
-import com.ishland.c2me.opts.dfc.common.ir.type.mir.FloatType;
+import com.ishland.c2me.opts.dfc.common.ir.type.mir.ControlType;
 
-public class KernelInvokeNode implements MIRNode {
+/// The control flow source of a kernel function: takes a memory edge from its
+/// {@link KernelDescriptorNode} as its first memory operand, marking which
+/// function it is the entry of. The control flow part of the original
+/// KernelNode; it will be lowered to a function node later.
+public enum KernelBeginNode implements HIRNode {
+
+    BEGIN;
+
+    @Override
+    public void lowerToMid(IrGraph graph, int id, Canonicalizer canonicalizer) {
+    }
+
     @Override
     public IrType initialType() {
-        return FloatType.TOP;
+        return ControlType.CONTROL;
     }
 
     @Override
     public IrType compute(IrGraph graph, int id, GraphContext ctx) {
-        final int kernel = IrNode.memory(graph, id, 0);
-        return graph.getType(kernel);
+        return null;
     }
 
     @Override
@@ -28,7 +37,6 @@ public class KernelInvokeNode implements MIRNode {
 
     @Override
     public void export(IrGraph graph, int id, GraphBuilder builder) {
-
     }
 
     @Override
