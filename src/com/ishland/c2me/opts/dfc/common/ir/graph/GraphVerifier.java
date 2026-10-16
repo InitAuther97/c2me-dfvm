@@ -7,7 +7,8 @@ import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.BeginBlockNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.BranchBeginNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.ControlNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.EndBlockNode;
-import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.KernelNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.FunctionBeginNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.FunctionNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.IfBranchNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.MergeNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.ProgramNode;
@@ -21,13 +22,13 @@ import java.util.BitSet;
 ///
 /// - A graph holds exactly one {@link ProgramNode#START} and one
 ///   {@link ProgramNode#END}; START fans out to at least one
-///   {@link KernelNode} and every {@link ReturnNode} flows into END.
+///   {@link FunctionBeginNode} and every {@link ReturnNode} flows into END.
 /// - Every {@link BeginBlockNode} has exactly one control edge to the
 ///   {@link EndBlockNode} terminating its block.
 /// - An {@link IfBranchNode} has exactly two {@link BranchBeginNode}
 ///   successors (TRUE at slot 0, FALSE at slot 1); a {@link MergeNode} has
 ///   exactly two {@link BeginBlockNode} predecessors.
-/// - Every function's control flow starting at its KernelNode eventually
+/// - Every function's control flow starting at its FunctionBeginNode eventually
 ///   flows into exactly one ReturnNode, and the program table of
 ///   {@link IrGraph#defineProgram} mirrors these entry/exit pairs.
 ///
@@ -51,16 +52,16 @@ public final class GraphVerifier {
         check(graph.get(end) != null && graph.getNode(end) == ProgramNode.END,
                 "Program end %d is not ProgramNode.END", end);
 
-        // START has no control input and fans out to KernelNodes only
+        // START has no control input and fans out to FunctionBeginNodes only
         check(control.getOperands(start).isEmpty(),
                 "Program start %d must not have control inputs", start);
         final IntList entries = control.getUsages(start);
         check(!entries.isEmpty(),
-                "Program start %d must point to at least one KernelNode", start);
+                "Program start %d must point to at least one FunctionBeginNode", start);
         for (int i = 0; i < entries.size(); i++) {
             final int entry = entries.getInt(i);
-            check(graph.getNode(entry) instanceof KernelNode,
-                    "Program start %d may only point to KernelNode, got %s at %d",
+            check(graph.getNode(entry) instanceof FunctionBeginNode,
+                    "Program start %d may only point to FunctionBeginNode, got %s at %d",
                     start, name(graph, entry), entry);
         }
 
@@ -77,7 +78,7 @@ public final class GraphVerifier {
 
         // The program table mirrors the entry/exit pairs of the control edges
         check(graph.countPrograms() == entries.size(),
-                "Defined program count %d does not match %d KernelNodes under START",
+                "Defined program count %d does not match %d FunctionBeginNodes under START",
                 graph.countPrograms(), entries.size());
         for (int i = 0; i < graph.countPrograms(); i++) {
             final long program = graph.getProgramAt(i);
@@ -95,7 +96,7 @@ public final class GraphVerifier {
             switch (graph.getNode(id)) {
                 case ProgramNode boundary -> check((id == start) == (boundary == ProgramNode.START),
                         "Duplicate program boundary node at %d", id);
-                case KernelNode ignored -> verifyEntry(graph, id, start);
+                case FunctionBeginNode ignored -> verifyEntry(graph, id, start);
                 case IfBranchNode ignored -> verifyIfBranch(graph, id);
                 case BranchBeginNode branch -> verifyBranchBegin(graph, id, branch);
                 case MergeNode ignored -> verifyMerge(graph, id);
@@ -119,7 +120,7 @@ public final class GraphVerifier {
             final IrNode node = graph.getNode(id);
             if (node instanceof ControlNode && !(node instanceof ProgramNode)) {
                 check(visited.get(id),
-                        "Control node %d (%s) is not reachable from any KernelNode", id, name(graph, id));
+                        "Control node %d (%s) is not reachable from any FunctionBeginNode", id, name(graph, id));
             }
         }
     }
@@ -127,7 +128,7 @@ public final class GraphVerifier {
     private static void verifyEntry(IrGraph graph, int id, int start) {
         final IntList operands = graph.getControl().getOperands(id);
         check(operands.size() == 1 && operands.getInt(0) == start,
-                "KernelNode %d must have START %d as its only control operand, got %s", id, start, operands);
+                "FunctionBeginNode %d must have START %d as its only control operand, got %s", id, start, operands);
         verifyBlockEnd(graph, id);
     }
 
@@ -202,13 +203,13 @@ public final class GraphVerifier {
         final BitSet forward = walk(graph, begin, false);
         final BitSet reachesReturn = walk(graph, ret, true);
         check(forward.get(ret),
-                "ReturnNode %d is not reachable from KernelNode %d", ret, begin);
+                "ReturnNode %d is not reachable from FunctionBeginNode %d", ret, begin);
         for (int id = forward.nextSetBit(0); id >= 0; id = forward.nextSetBit(id + 1)) {
             check(reachesReturn.get(id),
                     "Control node %d (%s) does not eventually flow into ReturnNode %d",
                     id, name(graph, id), ret);
             check(id == ret || graph.getNode(id) != ReturnNode.RET,
-                    "KernelNode %d reaches another ReturnNode %d besides %d", begin, id, ret);
+                    "FunctionBeginNode %d reaches another ReturnNode %d besides %d", begin, id, ret);
             check(!visited.get(id),
                     "Control node %d (%s) is shared between programs", id, name(graph, id));
         }
@@ -239,10 +240,24 @@ public final class GraphVerifier {
 
     private static String name(IrGraph graph, int id) {
         return switch (graph.getNode(id)) {
-            case KernelNode entry -> "KernelNode(%s)".formatted(entry.name());
+            case FunctionBeginNode ignored -> "FunctionBeginNode(%s)".formatted(functionName(graph, id));
             case IrNode node -> node.getClass().getSimpleName();
             case null -> "null";
         };
+    }
+
+    /// The name of the function marked by a begin node's memory operand, or
+    /// "?" if the link is missing.
+    private static String functionName(IrGraph graph, int id) {
+        final var operands = graph.getMemory().getOperands(id);
+        for (int i = 0; i < operands.size(); i++) {
+            final int operand = operands.getInt(i);
+            final var state = graph.get(operand);
+            if (state != null && state.node() instanceof FunctionNode function) {
+                return function.name();
+            }
+        }
+        return "?";
     }
 
     private static void check(boolean condition, String format, Object... args) {

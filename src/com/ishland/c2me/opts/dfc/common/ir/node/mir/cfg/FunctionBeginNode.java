@@ -7,14 +7,16 @@ import com.ishland.c2me.opts.dfc.common.ir.phase.scalar.Canonicalizer;
 import com.ishland.c2me.opts.dfc.common.ir.type.mir.ControlType;
 import com.ishland.c2me.opts.dfc.common.ir.type.IrType;
 
-import java.lang.foreign.Arena;
-import java.lang.foreign.MemoryLayout;
+/// Entry point of a single program: takes a memory edge from its
+/// {@link FunctionNode} as its first memory operand, marking the function it
+/// is the control flow source of. {@link ProgramNode#START} points to the
+/// FunctionBeginNode of every executable function; traversing down from one
+/// always ends up in a single {@link ReturnNode} that post-dominates it.
+/// Part of the control spine: a FunctionBeginNode must never be eliminated
+/// (see Canonicalizer).
+public enum FunctionBeginNode implements BeginBlockNode {
 
-/// Entry point of a single program. {@link ProgramNode#START} points to at
-/// least one KernelNode; traversing down from a KernelNode always ends up in
-/// a single {@link ReturnNode} that post-dominates it. Part of the control
-/// spine: a KernelNode must never be eliminated (see Canonicalizer).
-public record KernelNode(String name) implements BeginBlockNode {
+    BEGIN;
 
     @Override
     public IrType initialType() {
@@ -29,11 +31,6 @@ public record KernelNode(String name) implements BeginBlockNode {
     @Override
     public boolean optimize(IrGraph graph, int id, Canonicalizer canonicalizer, GraphContext ctx) {
         return false;
-    }
-
-    @Override
-    public int hash() {
-        return name.hashCode();
     }
 
     @Override

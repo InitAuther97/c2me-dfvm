@@ -11,7 +11,8 @@ import com.ishland.c2me.opts.dfc.common.ir.type.mir.ControlType;
 /// The control flow source of a kernel function: takes a memory edge from its
 /// {@link KernelDescriptorNode} as its first memory operand, marking which
 /// function it is the entry of. The control flow part of the original
-/// KernelNode; it will be lowered to a function node later.
+/// KernelNode; it will be lowered to
+/// {@link com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.FunctionBeginNode} later.
 public enum KernelBeginNode implements HIRNode {
 
     BEGIN;

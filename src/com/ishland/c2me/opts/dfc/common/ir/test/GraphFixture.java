@@ -3,7 +3,8 @@ package com.ishland.c2me.opts.dfc.common.ir.test;
 import com.ishland.c2me.opts.dfc.common.ir.GraphContext;
 import com.ishland.c2me.opts.dfc.common.ir.graph.IrGraph;
 import com.ishland.c2me.opts.dfc.common.ir.node.IrNode;
-import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.KernelNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.FunctionBeginNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.FunctionNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.ReturnNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.constant.DoubleConstantNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.constant.IntConstantNode;
@@ -24,7 +25,7 @@ import it.unimi.dsi.fastutil.ints.IntList;
 
 /// Helper to quickly build an IR graph for tests, run phases on it and
 /// inspect the results. Every fixture holds a valid control spine:
-/// START -&gt; KernelNode -&gt; ReturnNode -&gt; END. Value nodes not reachable
+/// START -&gt; FunctionBeginNode -&gt; ReturnNode -&gt; END. Value nodes not reachable
 /// from a kept-alive root are subject to dead code elimination during
 /// canonicalization, so roots of interest should be anchored with
 /// {@link #keepAlive(int)}.
@@ -36,7 +37,9 @@ public final class GraphFixture {
     private final int ret;
 
     public GraphFixture() {
-        entry = graph.addNode(new KernelNode("test"));
+        final int descriptor = graph.addNode(new FunctionNode("test"));
+        entry = graph.addNode(FunctionBeginNode.BEGIN);
+        graph.getMemory().appendEdge(descriptor, entry);
         ret = graph.addNode(ReturnNode.RET);
         graph.getControl().appendEdge(context.getProgramStart(), entry);
         graph.getControl().appendEdge(entry, ret);

@@ -13,7 +13,6 @@ import com.ishland.c2me.opts.dfc.common.ir.node.mir.memory.MemPhiNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.memory.MemProxyNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.branch.PhiNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.proxy.ValueProxyNode;
-import com.ishland.c2me.opts.dfc.common.ir.phase.scalar.RunCanonicalizerPhase;
 import com.ishland.flowsched.util.Assertions;
 import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
@@ -48,7 +47,7 @@ import java.util.BitSet;
 /// canonicalizer to find crucial optimization, such as constant condition
 /// for a control flow, enabling the elimination of the loop guard. This is
 /// usually observed on counted loops, whose rotation is theoretically free.
-public class LoopRotation extends RunCanonicalizerPhase implements SchedulePhase {
+public class LoopRotation extends MIRCanonicalizationPhase implements SchedulePhase {
 
     private static final Long2ReferenceFunction<IntArrayList> LIST_INIT = _ -> new IntArrayList();
 

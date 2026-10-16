@@ -4,7 +4,8 @@ import com.ishland.c2me.opts.dfc.common.ir.GraphContext;
 import com.ishland.c2me.opts.dfc.common.ir.graph.IrGraph;
 import com.ishland.c2me.opts.dfc.common.ir.graph.cfg.CFGAccess;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.BranchBeginNode;
-import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.KernelNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.FunctionBeginNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.FunctionNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.IfBranchNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.MergeNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.ReturnNode;
@@ -30,7 +31,9 @@ public class LoopRotationTest {
         final IrGraph graph = ctx.getIrGraph();
         final var control = graph.getControl();
         final var value = graph.getValue();
-        final int entry = graph.addNode(new KernelNode("test"));
+        final int descriptor = graph.addNode(new FunctionNode("test"));
+        final int entry = graph.addNode(FunctionBeginNode.BEGIN);
+        graph.getMemory().appendEdge(descriptor, entry);
         final int ret = graph.addNode(ReturnNode.RET);
         //                     v----------------------^
         // Begin -> Entry -> Merge -> if -> true -> merge

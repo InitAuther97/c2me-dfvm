@@ -10,8 +10,8 @@ import com.ishland.c2me.opts.dfc.common.ir.type.mir.ControlType;
 import com.ishland.c2me.opts.dfc.common.ir.type.IrType;
 
 /// Exit point of a single program. A ReturnNode post-dominates its
-/// respective {@link KernelNode} (traversing down from the entry always
-/// reaches exactly one ReturnNode) and points to {@link ProgramNode#END}.
+/// respective {@link FunctionBeginNode} (traversing down from the entry
+/// always reaches exactly one ReturnNode) and points to {@link ProgramNode#END}.
 /// Part of the control spine: a ReturnNode must never be eliminated
 /// (see Canonicalizer).
 public enum ReturnNode implements EndBlockNode {

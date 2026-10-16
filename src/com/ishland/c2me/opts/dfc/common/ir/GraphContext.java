@@ -2,7 +2,7 @@ package com.ishland.c2me.opts.dfc.common.ir;
 
 import com.ishland.c2me.opts.dfc.common.ir.graph.GraphVerifier;
 import com.ishland.c2me.opts.dfc.common.ir.graph.IrGraph;
-import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.KernelNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.FunctionBeginNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.ProgramNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.ReturnNode;
 import com.ishland.c2me.opts.dfc.common.ir.type.mir.DataType;
@@ -15,7 +15,7 @@ import java.util.BitSet;
 /// Compilation context owning one IR graph. Each context holds exactly one
 /// program begin ({@link ProgramNode#START}) and one program exit
 /// ({@link ProgramNode#END}): over control edges, START fans out to the
-/// {@link KernelNode} of every executable function, and every
+/// {@link FunctionBeginNode} of every executable function, and every
 /// {@link ReturnNode} flows into END. These structural invariants are
 /// checked by {@link GraphVerifier}.
 public class GraphContext {
