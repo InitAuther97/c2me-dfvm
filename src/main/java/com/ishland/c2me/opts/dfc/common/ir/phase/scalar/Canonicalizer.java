@@ -6,6 +6,7 @@ import com.ishland.c2me.opts.dfc.common.ir.graph.value.GraphUtil;
 import com.ishland.c2me.opts.dfc.common.ir.graph.IrGraph;
 import com.ishland.c2me.opts.dfc.common.ir.graph.value.NodeState;
 import com.ishland.c2me.opts.dfc.common.ir.node.IrNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.hir.kernel.KernelBeginNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.FunctionBeginNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.ProgramNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.ReturnNode;
@@ -85,7 +86,8 @@ public class Canonicalizer implements Runnable {
     /// is structural: a valid graph always contains it, so it is never
     /// subject to dead code elimination even when it has no usages.
     private static boolean isControlSpine(IrNode node) {
-        return node instanceof ProgramNode || node instanceof FunctionBeginNode || node instanceof ReturnNode;
+        return node instanceof ProgramNode || node instanceof FunctionBeginNode
+                || node instanceof KernelBeginNode || node instanceof ReturnNode;
     }
 
 

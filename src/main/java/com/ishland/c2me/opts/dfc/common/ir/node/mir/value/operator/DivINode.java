@@ -11,8 +11,19 @@ import com.ishland.c2me.opts.dfc.common.ir.type.mir.IntegerType;
 import com.ishland.c2me.opts.dfc.common.ir.type.IrType;
 import com.ishland.c2me.opts.dfc.common.ir.type.util.IntUtil;
 
+/// Integer division with the rounding mode chosen per node instance.
+/// A divisor that may be zero and an out-of-int-range result both degrade
+/// to {@link IntegerType#BOT}.
 public enum DivINode implements ValueOpNode, IntCommonOp {
-    DIV_I;
+    DIV_TRUNC(IntUtil.Rounding.TRUNC),
+    DIV_FLOOR(IntUtil.Rounding.FLOOR),
+    DIV_CEIL(IntUtil.Rounding.CEIL);
+
+    private final IntUtil.Rounding rounding;
+
+    DivINode(IntUtil.Rounding rounding) {
+        this.rounding = rounding;
+    }
 
     @Override
     public IrType initialType() {
@@ -24,7 +35,7 @@ public enum DivINode implements ValueOpNode, IntCommonOp {
         final var operands = graph.getValue().getOperands(id);
         final var left = (IntegerType) graph.getType(operands.getInt(0));
         final var right = (IntegerType) graph.getType(operands.getInt(1));
-        return IntUtil.div(left, right);
+        return IntUtil.div(left, right, rounding);
     }
 
     @Override
@@ -45,7 +56,7 @@ public enum DivINode implements ValueOpNode, IntCommonOp {
 
     @Override
     public int evaluate(int left, int right) {
-        return 0;
+        return (int) rounding.quotient(left, right);
     }
 
     @Override

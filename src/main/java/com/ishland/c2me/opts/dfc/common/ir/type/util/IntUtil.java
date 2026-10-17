@@ -4,6 +4,29 @@ import com.ishland.c2me.opts.dfc.common.ir.type.mir.IntegerType;
 
 public class IntUtil {
 
+    /// Integer division rounding modes. Operations are defined on `long` so
+    /// range endpoint evaluation cannot overflow; casting the final value to
+    /// int wraps exactly like int arithmetic, including `MIN_VALUE / -1`.
+    public enum Rounding {
+        TRUNC, FLOOR, CEIL;
+
+        public long quotient(long left, long right) {
+            return switch (this) {
+                case TRUNC -> left / right;
+                case FLOOR -> Math.floorDiv(left, right);
+                case CEIL -> Math.ceilDiv(left, right);
+            };
+        }
+
+        public long remainder(long left, long right) {
+            return switch (this) {
+                case TRUNC -> left % right;
+                case FLOOR -> Math.floorMod(left, right);
+                case CEIL -> left - right * Math.ceilDiv(left, right);
+            };
+        }
+    }
+
     public static IntegerType add(IntegerType first, IntegerType second) {
         if (!first.isDetermined() || !second.isDetermined()) return IntegerType.TOP;
         long min = (long) first.min() + second.min();
@@ -27,14 +50,33 @@ public class IntUtil {
         return of(min4(p1, p2, p3, p4), max4(p1, p2, p3, p4));
     }
 
-    public static IntegerType div(IntegerType first, IntegerType second) {
+    /// For a sign-uniform divisor every rounding mode is monotone in each
+    /// operand, so the four corner quotients bound the result exactly.
+    public static IntegerType div(IntegerType first, IntegerType second, Rounding rounding) {
         if (!first.isDetermined() || !second.isDetermined()) return IntegerType.TOP;
         if (second.min() <= 0 && second.max() >= 0) return IntegerType.BOT; // divisor may be zero
-        long q1 = (long) first.min() / second.min();
-        long q2 = (long) first.min() / second.max();
-        long q3 = (long) first.max() / second.min();
-        long q4 = (long) first.max() / second.max();
+        long q1 = rounding.quotient(first.min(), second.min());
+        long q2 = rounding.quotient(first.min(), second.max());
+        long q3 = rounding.quotient(first.max(), second.min());
+        long q4 = rounding.quotient(first.max(), second.max());
         return of(min4(q1, q2, q3, q4), max4(q1, q2, q3, q4));
+    }
+
+    /// The remainder's magnitude is bounded by the divisor alone, so its
+    /// range needs no endpoint evaluation. Its sign depends on the mode:
+    /// truncation follows the dividend, floor follows the divisor, and ceil
+    /// is opposite to the divisor.
+    public static IntegerType mod(IntegerType first, IntegerType second, Rounding rounding) {
+        if (!first.isDetermined() || !second.isDetermined()) return IntegerType.TOP;
+        if (second.min() <= 0 && second.max() >= 0) return IntegerType.BOT; // divisor may be zero
+        final long magnitude = Math.max(Math.abs((long) second.min()), Math.abs((long) second.max())) - 1;
+        return switch (rounding) {
+            case TRUNC -> of(
+                    first.min() < 0 ? -magnitude : 0,
+                    first.max() > 0 ? magnitude : 0);
+            case FLOOR -> second.min() > 0 ? of(0, magnitude) : of(-magnitude, 0);
+            case CEIL -> second.min() > 0 ? of(-magnitude, 0) : of(0, magnitude);
+        };
     }
 
     private static IntegerType of(long min, long max) {

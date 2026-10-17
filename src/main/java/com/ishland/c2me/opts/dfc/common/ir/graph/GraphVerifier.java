@@ -3,6 +3,8 @@ package com.ishland.c2me.opts.dfc.common.ir.graph;
 import com.ishland.c2me.opts.dfc.common.ir.GraphContext;
 import com.ishland.c2me.opts.dfc.common.ir.LongUtil;
 import com.ishland.c2me.opts.dfc.common.ir.node.IrNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.hir.kernel.KernelBeginNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.hir.kernel.KernelDescriptorNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.BeginBlockNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.BranchBeginNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.ControlNode;
@@ -52,16 +54,16 @@ public final class GraphVerifier {
         check(graph.get(end) != null && graph.getNode(end) == ProgramNode.END,
                 "Program end %d is not ProgramNode.END", end);
 
-        // START has no control input and fans out to FunctionBeginNodes only
+        // START has no control input and fans out to function begin nodes only
         check(control.getOperands(start).isEmpty(),
                 "Program start %d must not have control inputs", start);
         final IntList entries = control.getUsages(start);
         check(!entries.isEmpty(),
-                "Program start %d must point to at least one FunctionBeginNode", start);
+                "Program start %d must point to at least one function begin node", start);
         for (int i = 0; i < entries.size(); i++) {
             final int entry = entries.getInt(i);
-            check(graph.getNode(entry) instanceof FunctionBeginNode,
-                    "Program start %d may only point to FunctionBeginNode, got %s at %d",
+            check(graph.getNode(entry) instanceof FunctionBeginNode || graph.getNode(entry) instanceof KernelBeginNode,
+                    "Program start %d may only point to function begin nodes, got %s at %d",
                     start, name(graph, entry), entry);
         }
 
@@ -97,6 +99,7 @@ public final class GraphVerifier {
                 case ProgramNode boundary -> check((id == start) == (boundary == ProgramNode.START),
                         "Duplicate program boundary node at %d", id);
                 case FunctionBeginNode ignored -> verifyEntry(graph, id, start);
+                case KernelBeginNode ignored -> verifyEntry(graph, id, start);
                 case IfBranchNode ignored -> verifyIfBranch(graph, id);
                 case BranchBeginNode branch -> verifyBranchBegin(graph, id, branch);
                 case MergeNode ignored -> verifyMerge(graph, id);
@@ -241,6 +244,7 @@ public final class GraphVerifier {
     private static String name(IrGraph graph, int id) {
         return switch (graph.getNode(id)) {
             case FunctionBeginNode ignored -> "FunctionBeginNode(%s)".formatted(functionName(graph, id));
+            case KernelBeginNode ignored -> "KernelBeginNode(%s)".formatted(functionName(graph, id));
             case IrNode node -> node.getClass().getSimpleName();
             case null -> "null";
         };
@@ -255,6 +259,9 @@ public final class GraphVerifier {
             final var state = graph.get(operand);
             if (state != null && state.node() instanceof FunctionNode function) {
                 return function.name();
+            }
+            if (state != null && state.node() instanceof KernelDescriptorNode descriptor) {
+                return descriptor.name();
             }
         }
         return "?";

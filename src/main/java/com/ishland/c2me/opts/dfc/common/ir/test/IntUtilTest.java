@@ -40,24 +40,54 @@ public class IntUtilTest {
 
     public void testDiv() {
         Assert.assertEquals(IntegerType.range(2, 6),
-                IntUtil.div(IntegerType.range(6, 12), IntegerType.range(2, 3)), "div");
+                IntUtil.div(IntegerType.range(6, 12), IntegerType.range(2, 3), IntUtil.Rounding.TRUNC), "div");
         Assert.assertEquals(IntegerType.range(-6, -2),
-                IntUtil.div(IntegerType.range(6, 12), IntegerType.range(-3, -2)), "div negative divisor");
+                IntUtil.div(IntegerType.range(6, 12), IntegerType.range(-3, -2), IntUtil.Rounding.TRUNC), "div negative divisor");
         Assert.assertEquals(IntegerType.constant(-3),
-                IntUtil.div(IntegerType.constant(7), IntegerType.constant(-2)), "div truncates toward zero");
+                IntUtil.div(IntegerType.constant(7), IntegerType.constant(-2), IntUtil.Rounding.TRUNC), "div truncates toward zero");
+    }
+
+    public void testDivRoundingModes() {
+        Assert.assertEquals(IntegerType.constant(-4),
+                IntUtil.div(IntegerType.constant(-7), IntegerType.constant(2), IntUtil.Rounding.FLOOR), "floor div");
+        Assert.assertEquals(IntegerType.constant(-3),
+                IntUtil.div(IntegerType.constant(-7), IntegerType.constant(2), IntUtil.Rounding.CEIL), "ceil div");
+        Assert.assertEquals(IntegerType.constant(-4),
+                IntUtil.div(IntegerType.constant(7), IntegerType.constant(-2), IntUtil.Rounding.FLOOR), "floor div negative divisor");
+        Assert.assertEquals(IntegerType.range(-4, 3),
+                IntUtil.div(IntegerType.range(-7, 7), IntegerType.constant(2), IntUtil.Rounding.FLOOR), "floor div range");
+        Assert.assertEquals(IntegerType.range(-3, 4),
+                IntUtil.div(IntegerType.range(-7, 7), IntegerType.constant(2), IntUtil.Rounding.CEIL), "ceil div range");
     }
 
     public void testDivByZeroContainingRangeWidensToBot() {
         Assert.assertSame(IntegerType.BOT,
-                IntUtil.div(IntegerType.range(1, 2), IntegerType.range(-1, 1)), "div crossing zero");
+                IntUtil.div(IntegerType.range(1, 2), IntegerType.range(-1, 1), IntUtil.Rounding.TRUNC), "div crossing zero");
         Assert.assertSame(IntegerType.BOT,
-                IntUtil.div(IntegerType.range(1, 2), IntegerType.constant(0)), "div by zero constant");
+                IntUtil.div(IntegerType.range(1, 2), IntegerType.constant(0), IntUtil.Rounding.TRUNC), "div by zero constant");
     }
 
     public void testDivMinValueByMinusOneWidensToBot() {
         // Integer.MIN_VALUE / -1 overflows int
         Assert.assertSame(IntegerType.BOT,
-                IntUtil.div(IntegerType.constant(Integer.MIN_VALUE), IntegerType.constant(-1)), "div overflow");
+                IntUtil.div(IntegerType.constant(Integer.MIN_VALUE), IntegerType.constant(-1), IntUtil.Rounding.TRUNC), "div overflow");
+        Assert.assertSame(IntegerType.BOT,
+                IntUtil.div(IntegerType.constant(Integer.MIN_VALUE), IntegerType.constant(-1), IntUtil.Rounding.FLOOR), "floor div overflow");
+    }
+
+    public void testMod() {
+        Assert.assertEquals(IntegerType.range(-4, 4),
+                IntUtil.mod(IntegerType.range(-13, 13), IntegerType.constant(5), IntUtil.Rounding.TRUNC), "trunc mod sign follows dividend");
+        Assert.assertEquals(IntegerType.range(0, 4),
+                IntUtil.mod(IntegerType.range(-13, 13), IntegerType.constant(5), IntUtil.Rounding.FLOOR), "floor mod sign follows divisor");
+        Assert.assertEquals(IntegerType.range(-4, 0),
+                IntUtil.mod(IntegerType.range(-13, 13), IntegerType.constant(5), IntUtil.Rounding.CEIL), "ceil mod opposite of divisor");
+        Assert.assertEquals(IntegerType.range(-4, 0),
+                IntUtil.mod(IntegerType.range(-13, 13), IntegerType.constant(-5), IntUtil.Rounding.FLOOR), "floor mod negative divisor");
+        Assert.assertEquals(IntegerType.range(0, 0),
+                IntUtil.mod(IntegerType.range(-13, 13), IntegerType.constant(-1), IntUtil.Rounding.FLOOR), "mod by minus one");
+        Assert.assertSame(IntegerType.BOT,
+                IntUtil.mod(IntegerType.range(1, 2), IntegerType.range(-1, 1), IntUtil.Rounding.FLOOR), "mod crossing zero");
     }
 
     public void testTopDelaysEvaluation() {
@@ -65,6 +95,7 @@ public class IntUtilTest {
         Assert.assertSame(IntegerType.TOP, IntUtil.add(IntegerType.TOP, determined), "add top");
         Assert.assertSame(IntegerType.TOP, IntUtil.sub(determined, IntegerType.TOP), "sub top");
         Assert.assertSame(IntegerType.TOP, IntUtil.mul(IntegerType.TOP, determined), "mul top");
-        Assert.assertSame(IntegerType.TOP, IntUtil.div(determined, IntegerType.TOP), "div top");
+        Assert.assertSame(IntegerType.TOP, IntUtil.div(determined, IntegerType.TOP, IntUtil.Rounding.TRUNC), "div top");
+        Assert.assertSame(IntegerType.TOP, IntUtil.mod(determined, IntegerType.TOP, IntUtil.Rounding.TRUNC), "mod top");
     }
 }

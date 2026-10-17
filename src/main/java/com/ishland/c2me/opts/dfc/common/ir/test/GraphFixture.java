@@ -91,7 +91,7 @@ public final class GraphFixture {
     public int iadd(int lhs, int rhs) { return node(AddINode.ADD_I, lhs, rhs); }
     public int isub(int lhs, int rhs) { return node(SubINode.SUB_I, lhs, rhs); }
     public int imul(int lhs, int rhs) { return node(MulINode.MUL_I, lhs, rhs); }
-    public int idiv(int lhs, int rhs) { return node(DivINode.DIV_I, lhs, rhs); }
+    public int idiv(int lhs, int rhs) { return node(DivINode.DIV_TRUNC, lhs, rhs); }
 
     // double operators
     public int dadd(int lhs, int rhs) { return node(AddFPNode.ADD_D, lhs, rhs); }
