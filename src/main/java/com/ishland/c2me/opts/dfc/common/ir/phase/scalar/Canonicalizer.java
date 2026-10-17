@@ -13,7 +13,6 @@ import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.ReturnNode;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntArrays;
 
-import java.util.BitSet;
 import java.util.Objects;
 
 public class Canonicalizer implements Runnable {
