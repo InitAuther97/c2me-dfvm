@@ -22,7 +22,7 @@ public class IntUtil {
             return switch (this) {
                 case TRUNC -> left % right;
                 case FLOOR -> Math.floorMod(left, right);
-                case CEIL -> left - right * Math.ceilDiv(left, right);
+                case CEIL -> Math.ceilMod(left, right);
             };
         }
     }
