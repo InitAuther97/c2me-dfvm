@@ -1,7 +1,7 @@
 package com.ishland.c2me.opts.dfc.common.ir.graph.cfg;
 
 import com.ishland.c2me.opts.dfc.common.ir.graph.IrGraph;
-import com.ishland.c2me.opts.dfc.common.ir.node.mir.SelectionNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.mir.PathSelectionNode;
 import it.unimi.dsi.fastutil.ints.Int2IntArrayMap;
 import it.unimi.dsi.fastutil.ints.Int2IntMap;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
@@ -29,7 +29,7 @@ public class InsnView {
         while (!stack.isEmpty()) {
             current = stack.popInt();
             final var node = graph.getNode(current);
-            if (SelectionNode.isBranchSelection(node)) {
+            if (PathSelectionNode.isBranchSelection(node)) {
                 // FIXME: There is no
             }
             final var insns = graph.getControl().getOperands(current);

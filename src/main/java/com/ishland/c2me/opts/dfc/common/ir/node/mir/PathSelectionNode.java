@@ -12,7 +12,7 @@ import com.ishland.c2me.opts.dfc.common.ir.type.mir.BranchType;
 import com.ishland.c2me.opts.dfc.common.ir.type.FormalType;
 import com.ishland.c2me.opts.dfc.common.ir.type.IrType;
 
-public abstract class SelectionNode implements MIRNode {
+public abstract class PathSelectionNode implements MIRNode {
 
     protected abstract EdgeAccessor getEdgeForSelection(IrGraph graph);
 

@@ -4,7 +4,7 @@ import com.ishland.c2me.opts.dfc.common.ir.GraphContext;
 import com.ishland.c2me.opts.dfc.common.ir.export.GraphBuilder;
 import com.ishland.c2me.opts.dfc.common.ir.graph.IrGraph;
 import com.ishland.c2me.opts.dfc.common.ir.graph.value.NodeState;
-import com.ishland.c2me.opts.dfc.common.ir.node.mir.SelectionNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.mir.PathSelectionNode;
 import com.ishland.c2me.opts.dfc.common.ir.phase.scalar.Canonicalizer;
 import com.ishland.c2me.opts.dfc.common.ir.type.mir.BranchType;
 import com.ishland.c2me.opts.dfc.common.ir.type.mir.ControlLike;
@@ -50,7 +50,7 @@ public enum MergeNode implements EndBlockNode, BeginBlockNode {
         // This is the signal that we can be eliminated
         for (int i = 0; i < usages.size(); i++) {
             final var node = graph.getNode(usages.getInt(i));
-            if (SelectionNode.isBranchSelection(node))
+            if (PathSelectionNode.isBranchSelection(node))
                 return false;
         }
 

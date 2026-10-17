@@ -11,13 +11,13 @@ import com.ishland.c2me.opts.dfc.common.ir.type.IrType;
 
 /// Invokes the kernel marked as callee by the memory edge from a
 /// {@link KernelDescriptorNode}, passed as this node's first memory operand.
-/// The shape of the invoked kernel is determined by the
-/// {@link PackedVolumeNode} passed as its second memory operand. The
-/// invocation abstracts a shape-changing then computing operation, and exists
-/// only at HIR: it lowers to using an array as a buffer, calling the kernel
-/// once to prefill required data, and converting the invocation in every lane
-/// to reading the array at the specified location then computing. Its type
-/// is deduced from its callee during computation (FormalType.TOP until then).
+/// The work item to sample is described by the {@link PackedVolumeNode}
+/// passed as its second memory operand — typically a degenerate volume whose
+/// origin is the mapped coordinate. The invocation exists only at HIR and
+/// yields the callee's value at that work item; the lowering batches
+/// invocations of the same callee into one volume fill and converts each to
+/// a load from the filled array. Its type is deduced from its callee during
+/// computation (FormalType.TOP until then).
 public enum KernelInvokeNode implements HIRNode {
 
     INVOKE;

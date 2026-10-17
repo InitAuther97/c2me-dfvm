@@ -6,6 +6,7 @@ import com.ishland.c2me.opts.dfc.common.ir.node.IrNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.FunctionBeginNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.FunctionNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.ReturnNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.branch.SelectNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.constant.DoubleConstantNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.constant.IntConstantNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.operator.AddFPNode;
@@ -92,6 +93,7 @@ public final class GraphFixture {
     public int isub(int lhs, int rhs) { return node(SubINode.SUB_I, lhs, rhs); }
     public int imul(int lhs, int rhs) { return node(MulINode.MUL_I, lhs, rhs); }
     public int idiv(int lhs, int rhs) { return node(DivINode.DIV_TRUNC, lhs, rhs); }
+    public int select(int condition, int ifTrue, int ifFalse) { return node(SelectNode.SELECT, condition, ifTrue, ifFalse); }
 
     // double operators
     public int dadd(int lhs, int rhs) { return node(AddFPNode.ADD_D, lhs, rhs); }

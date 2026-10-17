@@ -2,21 +2,28 @@ package com.ishland.c2me.opts.dfc.common.ir;
 
 import com.ishland.c2me.opts.dfc.common.ir.graph.IrGraph;
 import com.ishland.c2me.opts.dfc.common.ir.node.IrNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.hir.kernel.FindFirstNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.hir.kernel.KernelArgumentNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.hir.kernel.KernelBeginNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.hir.kernel.KernelDescriptorNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.hir.kernel.KernelInvokeNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.hir.kernel.PackedVolumeNode;
-import com.ishland.c2me.opts.dfc.common.ir.node.hir.kernel.border.SliceNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.ReturnNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.branch.RangeTestNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.constant.FloatConstantNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.constant.IntConstantNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.operator.AddFPNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.operator.AddINode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.operator.DivFPNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.operator.FPConvertNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.operator.MaxFPNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.operator.MinFPNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.operator.ModINode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.operator.MulFPNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.operator.MulINode;
+import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.operator.RoundFPNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.operator.SubFPNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.operator.SubINode;
 import net.minecraft.util.math.Direction;
 import net.minecraft.world.gen.densityfunction.BinaryOperationDensityFunction;
 import net.minecraft.world.gen.densityfunction.CacheDensityFunction;
@@ -24,16 +31,26 @@ import net.minecraft.world.gen.densityfunction.ClampDensityFunction;
 import net.minecraft.world.gen.densityfunction.ConstantDensityFunction;
 import net.minecraft.world.gen.densityfunction.DensityFunction;
 import net.minecraft.world.gen.densityfunction.DensityFunctionTypes;
+import net.minecraft.world.gen.densityfunction.FindTopSurfaceDensityFunction;
+import net.minecraft.world.gen.densityfunction.InterpolatedDensityFunction;
 import net.minecraft.world.gen.densityfunction.SliceDensityFunction;
 import net.minecraft.world.gen.densityfunction.UnaryOperationDensityFunction;
 
 import java.util.IdentityHashMap;
 import java.util.Map;
 
-/// Lowers a vanilla {@link DensityFunction} tree into our IR. Simple nodes are
-/// mapped into the enclosing kernel; border nodes (currently only slices) are
-/// split: the wrapped density function is compiled into its own kernel and the
-/// border node consumes a {@link KernelInvokeNode} at the split point.
+/// Lowers a vanilla {@link DensityFunction} tree into our IR.
+///
+/// Value types map to ordinary IR operations, and borders have no dedicated
+/// node types: a split is marked solely by a {@link KernelInvokeNode}, which
+/// samples the callee at one explicit work item — a degenerate volume whose
+/// origin is the mapped coordinate, derived from the enclosing kernel's
+/// arguments. A slice is a single invocation with one substituted
+/// coordinate; an interpolation samples the eight corners of the lane's
+/// containing cell with eight invocations and combines them with vanilla's
+/// lerp3. The invocation lowering batches invokes of the same callee into one
+/// volume fill with per-lane loads; bit-exactness with vanilla's bulk fill
+/// accumulation is intentionally dropped for interpolation.
 ///
 /// Every generated kernel declares the nine sampling region fields of
 /// {@link net.minecraft.util.math.noise.SamplingRegion} as i32
@@ -47,13 +64,15 @@ import java.util.Map;
 /// elimination to prune. The root kernel is the first program defined on the
 /// returned context.
 ///
-/// Shared density function instances are mapped once per kernel; sharing
-/// across a kernel boundary is intentionally not preserved because the
-/// work-item space differs. Coordinate-consuming types (noise, gradients,
-/// shifts, ...) are not supported yet only because no IR node exists for
-/// them, and types requiring volume algebra the IR cannot express yet (e.g.
-/// interpolation cell sizes needing a select for the aligned-cell edge case)
-/// are not supported and throw {@link UnsupportedOperationException}.
+/// Kernels may also declare custom formats: a predicate kernel used by
+/// {@link FindFirstNode} takes `(x, y, z)` and returns whether the density is
+/// positive; the scan forwards captured coordinates through the node's
+/// constant argument permutation. Shared density function instances are
+/// mapped once per kernel; sharing across a kernel boundary is intentionally
+/// not preserved because the work-item space differs. Coordinate-consuming
+/// types (noise, gradients, shifts, ...) are not supported yet only because
+/// no IR node exists for them; unsupported types throw
+/// {@link UnsupportedOperationException}.
 public class AstToIR {
 
     private static final String[] ARGUMENT_NAMES = {
@@ -62,12 +81,18 @@ public class AstToIR {
             "stepBlockX", "stepBlockY", "stepBlockZ"
     };
 
-    private static final int ARG_SIZE_X = 0;
-    private static final int ARG_SIZE_Y = 1;
-    private static final int ARG_SIZE_Z = 2;
     private static final int ARG_MIN_X = 3;
     private static final int ARG_MIN_Y = 4;
     private static final int ARG_MIN_Z = 5;
+
+    /// The work-item coordinate of the kernel being mapped: coordinate-
+    /// consuming types read these nodes instead of assuming an argument
+    /// layout, so kernels can declare custom formats.
+    private record Coordinates(int x, int y, int z) {
+    }
+
+    private record Kernel(int descriptor, int ret) {
+    }
 
     public static GraphContext lower(DensityFunction function) {
         final AstToIR lowering = new AstToIR();
@@ -82,10 +107,37 @@ public class AstToIR {
     private AstToIR() {
     }
 
-    /// Builds one kernel for the given function and returns the callee's
-    /// descriptor id.
+    /// Builds a standard density kernel with the volume format and returns
+    /// the callee's descriptor id.
     private int buildKernel(DensityFunction function) {
-        final String name = "df/" + this.nextKernelId++ + ": " + function.getClass().getSimpleName();
+        final Kernel kernel = beginKernel("df/" + this.nextKernelId++ + ": " + function.getClass().getSimpleName());
+        final int[] arguments = new int[ARGUMENT_NAMES.length];
+        for (int i = 0; i < arguments.length; i++) {
+            arguments[i] = graph.addNode(new KernelArgumentNode(ARGUMENT_NAMES[i]));
+        }
+        final int value = mapFunction(function, new IdentityHashMap<>(),
+                new Coordinates(arguments[ARG_MIN_X], arguments[ARG_MIN_Y], arguments[ARG_MIN_Z]));
+        finishKernel(kernel, value);
+        return kernel.descriptor();
+    }
+
+    /// Builds a boolean predicate kernel over the given density function,
+    /// returning whether it is positive. The callee format is `(x, y, z)`, so
+    /// a caller can feed it captured coordinates through the argument
+    /// permutation of a {@link FindFirstNode}.
+    private int buildPredicateKernel(DensityFunction function) {
+        final Kernel kernel = beginKernel("predicate/" + this.nextKernelId++ + ": " + function.getClass().getSimpleName());
+        final int x = graph.addNode(new KernelArgumentNode("x"));
+        final int y = graph.addNode(new KernelArgumentNode("y"));
+        final int z = graph.addNode(new KernelArgumentNode("z"));
+        final int value = mapFunction(function, new IdentityHashMap<>(), new Coordinates(x, y, z));
+        final int predicate = addNode(new RangeTestNode(Math.nextUp(0.0), Double.MAX_VALUE),
+                addNode(FPConvertNode.F2D, value));
+        finishKernel(kernel, predicate);
+        return kernel.descriptor();
+    }
+
+    private Kernel beginKernel(String name) {
         final int descriptor = graph.addNode(new KernelDescriptorNode(name));
         final int begin = graph.addNode(KernelBeginNode.BEGIN);
         final int ret = graph.addNode(ReturnNode.RET);
@@ -94,37 +146,37 @@ public class AstToIR {
         graph.getControl().appendEdge(begin, ret);
         graph.getControl().appendEdge(ret, context.getProgramEnd());
         graph.defineProgram(begin, ret);
-
-        final int[] arguments = new int[ARGUMENT_NAMES.length];
-        for (int i = 0; i < arguments.length; i++) {
-            arguments[i] = graph.addNode(new KernelArgumentNode(ARGUMENT_NAMES[i]));
-        }
-
-        final int value = mapFunction(function, new IdentityHashMap<>(), arguments);
-        graph.getValue().appendEdge(value, ret);
-        return descriptor;
+        return new Kernel(descriptor, ret);
     }
 
-    private int mapFunction(DensityFunction function, Map<DensityFunction, Integer> mapped, int[] arguments) {
+    private void finishKernel(Kernel kernel, int value) {
+        graph.getValue().appendEdge(value, kernel.ret());
+    }
+
+    private int mapFunction(DensityFunction function, Map<DensityFunction, Integer> mapped, Coordinates coordinates) {
         final Integer existing = mapped.get(function);
         if (existing != null) {
             return existing;
         }
         final int id = switch (function) {
             case DensityFunctionTypes.RegistryEntryHolder holder ->
-                    mapFunction(holder.function().value(), mapped, arguments);
+                    mapFunction(holder.function().value(), mapped, coordinates);
             case ConstantDensityFunction constant ->
                     addNode(new FloatConstantNode(constant.value()));
             case BinaryOperationDensityFunction binary ->
-                    mapBinary(binary, mapped, arguments);
+                    mapBinary(binary, mapped, coordinates);
             case UnaryOperationDensityFunction unary ->
-                    mapUnary(unary, mapped, arguments);
+                    mapUnary(unary, mapped, coordinates);
             case ClampDensityFunction clamp ->
-                    mapClamp(clamp, mapped, arguments);
+                    mapClamp(clamp, mapped, coordinates);
             case CacheDensityFunction cache ->
-                    mapFunction(cache.input(), mapped, arguments);
+                    mapFunction(cache.input(), mapped, coordinates);
+            case InterpolatedDensityFunction interpolated ->
+                    mapInterpolated(interpolated, coordinates);
             case SliceDensityFunction slice ->
-                    mapSlice(slice, arguments);
+                    mapSlice(slice, coordinates);
+            case FindTopSurfaceDensityFunction findTopSurface ->
+                    mapFindTopSurface(findTopSurface, coordinates);
             default -> throw new UnsupportedOperationException(
                     "Unsupported density function type: " + function.getClass().getName());
         };
@@ -132,9 +184,9 @@ public class AstToIR {
         return id;
     }
 
-    private int mapBinary(BinaryOperationDensityFunction binary, Map<DensityFunction, Integer> mapped, int[] arguments) {
-        final int left = mapFunction(binary.left(), mapped, arguments);
-        final int right = mapFunction(binary.right(), mapped, arguments);
+    private int mapBinary(BinaryOperationDensityFunction binary, Map<DensityFunction, Integer> mapped, Coordinates coordinates) {
+        final int left = mapFunction(binary.left(), mapped, coordinates);
+        final int right = mapFunction(binary.right(), mapped, coordinates);
         return switch (binary.type()) {
             case ADD -> addNode(AddFPNode.ADD_F, left, right);
             case SUB -> addNode(SubFPNode.SUB_F, left, right);
@@ -145,8 +197,8 @@ public class AstToIR {
         };
     }
 
-    private int mapUnary(UnaryOperationDensityFunction unary, Map<DensityFunction, Integer> mapped, int[] arguments) {
-        final int input = mapFunction(unary.input(), mapped, arguments);
+    private int mapUnary(UnaryOperationDensityFunction unary, Map<DensityFunction, Integer> mapped, Coordinates coordinates) {
+        final int input = mapFunction(unary.input(), mapped, coordinates);
         return switch (unary.type()) {
             case SQUARE -> addNode(MulFPNode.MUL_F, input, input);
             case CUBE -> addNode(MulFPNode.MUL_F, addNode(MulFPNode.MUL_F, input, input), input);
@@ -155,54 +207,123 @@ public class AstToIR {
         };
     }
 
-    private int mapClamp(ClampDensityFunction clamp, Map<DensityFunction, Integer> mapped, int[] arguments) {
-        final int input = mapFunction(clamp.input(), mapped, arguments);
+    private int mapClamp(ClampDensityFunction clamp, Map<DensityFunction, Integer> mapped, Coordinates coordinates) {
+        final int input = mapFunction(clamp.input(), mapped, coordinates);
         final int min = addNode(new FloatConstantNode(clamp.min()));
         final int max = addNode(new FloatConstantNode(clamp.max()));
         return addNode(MinFPNode.MIN_F, addNode(MaxFPNode.MAX_F, input, min), max);
     }
 
-    /// A slice splits its input into its own kernel: the callee's volume
-    /// degenerates on the sliced axis to size 1 at the fixed coordinate, while
-    /// every other field passes through unchanged. The step of the sliced
-    /// axis stays whatever the caller has, matching vanilla where a size of 1
-    /// makes it irrelevant.
-    private int mapSlice(SliceDensityFunction slice, int[] arguments) {
+    /// A slice substitutes one axis of the lane's coordinate and samples the
+    /// input there: a single per-item invocation, with no combine step.
+    private int mapSlice(SliceDensityFunction slice, Coordinates coordinates) {
         final int callee = buildKernel(slice.input());
-        final int sizeIndex, minIndex;
-        final byte axisFlag;
-        switch (slice.axis()) {
-            case X -> {
-                sizeIndex = ARG_SIZE_X;
-                minIndex = ARG_MIN_X;
-                axisFlag = SliceNode.AXIS_X;
-            }
-            case Y -> {
-                sizeIndex = ARG_SIZE_Y;
-                minIndex = ARG_MIN_Y;
-                axisFlag = SliceNode.AXIS_Y;
-            }
-            case Z -> {
-                sizeIndex = ARG_SIZE_Z;
-                minIndex = ARG_MIN_Z;
-                axisFlag = SliceNode.AXIS_Z;
-            }
-            default -> throw new IllegalStateException("Unknown axis: " + slice.axis());
-        }
-        final int[] volume = arguments.clone();
-        volume[sizeIndex] = addNode(new IntConstantNode(1));
-        volume[minIndex] = addNode(new IntConstantNode(slice.coordinate()));
+        final int one = addNode(new IntConstantNode(1));
+        final int coordinate = addNode(new IntConstantNode(slice.coordinate()));
+        final int x = slice.axis() == Direction.Axis.X ? coordinate : coordinates.x();
+        final int y = slice.axis() == Direction.Axis.Y ? coordinate : coordinates.y();
+        final int z = slice.axis() == Direction.Axis.Z ? coordinate : coordinates.z();
+        return invokeAt(callee, x, y, z, one);
+    }
 
-        final int packedVolume = addNode(PackedVolumeNode.INSTANCE, volume);
+    /// An interpolator samples the input at the eight corners of the lane's
+    /// containing cell and interpolates them with vanilla's lerp3. Each corner
+    /// is a per-item invocation (the cell origin and the in-cell position are
+    /// derived from the lane's coordinate); batching these invocations into a
+    /// single volume fill is the invocation lowering's job.
+    private int mapInterpolated(InterpolatedDensityFunction interpolated, Coordinates coordinates) {
+        final int callee = buildKernel(interpolated.input());
+        final int cellSizeXzNode = addNode(new IntConstantNode(interpolated.cellSizeXz()));
+        final int cellSizeYNode = addNode(new IntConstantNode(interpolated.cellSizeY()));
+        final int one = addNode(new IntConstantNode(1));
+
+        final int xInCell = addNode(ModINode.MOD_FLOOR, coordinates.x(), cellSizeXzNode);
+        final int yInCell = addNode(ModINode.MOD_FLOOR, coordinates.y(), cellSizeYNode);
+        final int zInCell = addNode(ModINode.MOD_FLOOR, coordinates.z(), cellSizeXzNode);
+        final int cellX = addNode(SubINode.SUB_I, coordinates.x(), xInCell);
+        final int cellY = addNode(SubINode.SUB_I, coordinates.y(), yInCell);
+        final int cellZ = addNode(SubINode.SUB_I, coordinates.z(), zInCell);
+        final int nextX = addNode(AddINode.ADD_I, cellX, cellSizeXzNode);
+        final int nextY = addNode(AddINode.ADD_I, cellY, cellSizeYNode);
+        final int nextZ = addNode(AddINode.ADD_I, cellZ, cellSizeXzNode);
+
+        final int alphaX = floatDivide(xInCell, interpolated.cellSizeXz());
+        final int alphaY = floatDivide(yInCell, interpolated.cellSizeY());
+        final int alphaZ = floatDivide(zInCell, interpolated.cellSizeXz());
+
+        final int v000 = invokeAt(callee, cellX, cellY, cellZ, one);
+        final int v100 = invokeAt(callee, nextX, cellY, cellZ, one);
+        final int v010 = invokeAt(callee, cellX, nextY, cellZ, one);
+        final int v110 = invokeAt(callee, nextX, nextY, cellZ, one);
+        final int v001 = invokeAt(callee, cellX, cellY, nextZ, one);
+        final int v101 = invokeAt(callee, nextX, cellY, nextZ, one);
+        final int v011 = invokeAt(callee, cellX, nextY, nextZ, one);
+        final int v111 = invokeAt(callee, nextX, nextY, nextZ, one);
+
+        // MathHelper.lerp3: lerp(alphaZ, lerp2(x, y, lower), lerp2(x, y, upper)),
+        // with lerp(delta, start, end) = start + delta * (end - start)
+        final int lower = lerp(alphaY, lerp(alphaX, v000, v100), lerp(alphaX, v010, v110));
+        final int upper = lerp(alphaY, lerp(alphaX, v001, v101), lerp(alphaX, v011, v111));
+        return lerp(alphaZ, lower, upper);
+    }
+
+    /// FindTopSurface samples the upper bound at (x, 0, z) (vanilla wraps the
+    /// compiled sampler in a Y-slice at 0), floors it down onto the cell grid
+    /// and scans from there toward lowerBound in cellHeight steps for the
+    /// first position where the density is positive, falling back to
+    /// lowerBound. The predicate kernel receives the captured coordinates
+    /// through the argument permutation (x, y, z).
+    ///
+    /// Note: vanilla returns lowerBound without probing when the floored
+    /// upper bound is at or below lowerBound, while the bidirectional scan
+    /// here would ascend from the floored bound in that case.
+    private int mapFindTopSurface(FindTopSurfaceDensityFunction function, Coordinates coordinates) {
+        final int predicate = buildPredicateKernel(function.density());
+        final int upperCallee = buildKernel(function.upperBound());
+        final int cellHeight = function.cellHeight();
+        final int one = addNode(new IntConstantNode(1));
+        final int upperBound = invokeAt(upperCallee, coordinates.x(),
+                addNode(new IntConstantNode(0)), coordinates.z(), one);
+        // topY = floor(upperBound / cellHeight) * cellHeight
+        final int topY = addNode(MulINode.MUL_I,
+                addNode(FPConvertNode.F2I, addNode(RoundFPNode.FLOOR_F,
+                        addNode(DivFPNode.DIV_F, upperBound, addNode(new FloatConstantNode(cellHeight))))),
+                addNode(new IntConstantNode(cellHeight)));
+        final int findFirst = addNode(new FindFirstNode(new int[]{1, 0, 2}),
+                topY,
+                addNode(new IntConstantNode(function.lowerBound())),
+                addNode(new IntConstantNode(cellHeight)),
+                coordinates.x(),
+                coordinates.z());
+        graph.getMemory().appendEdge(predicate, findFirst);
+        return addNode(FPConvertNode.I2F, findFirst);
+    }
+
+    /// Samples the callee at one explicit work item: a degenerate volume whose
+    /// minimum is the coordinate.
+    private int invokeAt(int callee, int x, int y, int z, int one) {
+        final int packedVolume = addNode(PackedVolumeNode.INSTANCE,
+                one, one, one,
+                x, y, z,
+                one, one, one);
         final int invoke = graph.addNode(KernelInvokeNode.INVOKE);
         graph.getMemory().appendEdge(callee, invoke);
         graph.getMemory().appendEdge(packedVolume, invoke);
-        return addNode(new SliceNode(
-                axisFlag,
-                slice.axis() == Direction.Axis.X ? slice.coordinate() : 0,
-                slice.axis() == Direction.Axis.Y ? slice.coordinate() : 0,
-                slice.axis() == Direction.Axis.Z ? slice.coordinate() : 0
-        ), invoke);
+        return invoke;
+    }
+
+    /// `(float) value / cellSize`, matching vanilla's float division of the
+    /// converted operands.
+    private int floatDivide(int value, int cellSize) {
+        return addNode(DivFPNode.DIV_F,
+                addNode(FPConvertNode.I2F, value),
+                addNode(new FloatConstantNode(cellSize)));
+    }
+
+    private int lerp(int alpha, int start, int end) {
+        // MathHelper.lerp: start + delta * (end - start)
+        return addNode(AddFPNode.ADD_F, start,
+                addNode(MulFPNode.MUL_F, alpha, addNode(SubFPNode.SUB_F, end, start)));
     }
 
     private int addNode(IrNode node, int... valueOperands) {

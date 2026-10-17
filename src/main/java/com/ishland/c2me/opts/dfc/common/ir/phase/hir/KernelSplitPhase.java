@@ -3,22 +3,22 @@ package com.ishland.c2me.opts.dfc.common.ir.phase.hir;
 import com.ishland.c2me.opts.dfc.common.ir.GraphContext;
 
 /// The first high tier pass, running before all other high tier passes: it
-/// splits the graph at border (shape-changing) nodes into per-work-item
-/// kernels, then combines their effects by eliminating unused kernel
-/// arguments and propagating each elimination to the callers.
+/// analyzes the shape changes marked by kernel invocations in the DAG and
+/// combines them by eliminating unused kernel arguments and propagating each
+/// elimination to the callers.
 ///
-/// A border node is a shape-changing operation: evaluating it for a given
-/// volume requires evaluating its input for another, possibly shrunk,
-/// volume, or evaluating at a work-item (x, y, z) requires evaluating the
-/// wrapped density function at another work-item (x', y', z'), which may
-/// collapse. To schedule these optimally, the wrapped subgraph runs in batch,
-/// filling an array that the border's per-lane logic loads on demand,
-/// eliminating redundant computation. Splitting the graph at every border
-/// node keeps each kernel a pure per-work-item computation, so the split
-/// must happen before any other high tier pass observes the graph.
+/// A shape change is a border operation: evaluating at a work-item (x, y, z)
+/// requires evaluating the wrapped density function at another work-item
+/// (x', y', z'), which may collapse, or over a volume. Borders carry no
+/// dedicated nodes; they are marked by KernelInvokeNodes whose packed
+/// volumes describe the sampled work items. To schedule these optimally,
+/// invocations of the same callee are batched into one volume fill whose
+/// result is loaded on demand, eliminating redundant computation; since the
+/// graph is already split into per-work-item kernels when it is built, this
+/// batching must happen before any other high tier pass observes the graph.
 ///
 /// Combining falls out of dead argument elimination instead of matching
-/// border patterns: a border that ignores an incoming coordinate (e.g. a
+/// patterns: an invocation that ignores an incoming coordinate (e.g. a
 /// slice's fixed axis) leaves the corresponding kernel argument unused. The
 /// argument is removed from the callee's signature and from every caller's
 /// packed volume, and the removal cascades — an operand dropped from a
@@ -46,8 +46,8 @@ public class KernelSplitPhase extends HIRCanonicalizationPhase {
 
     @Override
     public void run() {
-        // TODO: split the graph at border nodes into kernels, then eliminate
-        //       unused kernel arguments to a fixpoint, propagating each
-        //       elimination through the packed volumes to all callers
+        // TODO: batch kernel invocations into shared volume fills, then
+        //       eliminate unused kernel arguments to a fixpoint, propagating
+        //       each elimination through the packed volumes to all callers
     }
 }
