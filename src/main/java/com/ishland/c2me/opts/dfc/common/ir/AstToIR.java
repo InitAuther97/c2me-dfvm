@@ -271,12 +271,11 @@ public class AstToIR {
     /// compiled sampler in a Y-slice at 0), floors it down onto the cell grid
     /// and scans from there toward lowerBound in cellHeight steps for the
     /// first position where the density is positive, falling back to
-    /// lowerBound. The predicate kernel receives the captured coordinates
+    /// lowerBound. The descent is expressed as a negative step; when the
+    /// floored upper bound is at or below lowerBound the scan is empty and
+    /// {@link FindFirstNode} returns lowerBound without probing, matching
+    /// vanilla. The predicate kernel receives the captured coordinates
     /// through the argument permutation (x, y, z).
-    ///
-    /// Note: vanilla returns lowerBound without probing when the floored
-    /// upper bound is at or below lowerBound, while the bidirectional scan
-    /// here would ascend from the floored bound in that case.
     private int mapFindTopSurface(FindTopSurfaceDensityFunction function, Coordinates coordinates) {
         final int predicate = buildPredicateKernel(function.density());
         final int upperCallee = buildKernel(function.upperBound());
@@ -290,9 +289,9 @@ public class AstToIR {
                         addNode(DivFPNode.DIV_F, upperBound, addNode(new FloatConstantNode(cellHeight))))),
                 addNode(new IntConstantNode(cellHeight)));
         final int findFirst = addNode(new FindFirstNode(new int[]{1, 0, 2}),
-                topY,
                 addNode(new IntConstantNode(function.lowerBound())),
-                addNode(new IntConstantNode(cellHeight)),
+                topY,
+                addNode(new IntConstantNode(-cellHeight)),
                 coordinates.x(),
                 coordinates.z());
         graph.getMemory().appendEdge(predicate, findFirst);

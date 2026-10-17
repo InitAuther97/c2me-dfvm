@@ -11,21 +11,26 @@ import com.ishland.c2me.opts.dfc.common.ir.type.mir.IntegerType;
 
 import java.util.Arrays;
 
-/// Finds the first index of a descending strided scan for which a predicate
-/// kernel holds. The callee (a boolean-returning kernel) is marked by the
-/// memory edge from its {@link KernelDescriptorNode}, passed as this node's
-/// first memory operand.
+/// Finds the first index of a strided scan for which a predicate kernel
+/// holds. The callee (a boolean-returning kernel) is marked by the memory
+/// edge from its {@link KernelDescriptorNode}, passed as this node's first
+/// memory operand.
 ///
-/// Value operands: `[lowerBound, upperBound, step, captures...]`. The index
-/// starts at `lowerBound` and moves toward `upperBound` in steps of `step`,
-/// both ends inclusive: when `lowerBound > upperBound` it goes from bigger to
-/// smaller, otherwise from smaller to bigger. The first index for which the
-/// predicate holds is returned, or the end bound `upperBound` when no index
-/// matches. Each call to the predicate supplies the sources
-/// `[index, captures...]` permuted by the constant `argumentPermutation`
-/// table into the callee's declared argument slots: `permutation[j]` is the
-/// source feeding the callee's argument `j`, so the callee can preserve any
-/// argument layout (e.g. `(capture0, index, capture1)`).
+/// Value operands: `[lowerBound, upperBound, step, captures...]`. The scan
+/// direction is determined solely by the sign of `step`: a positive `step`
+/// ascends from `lowerBound` toward `upperBound`, a negative `step` descends
+/// from `upperBound` toward `lowerBound`. The index advances by `step` while
+/// it remains within the bounds. The first index for which the predicate
+/// holds is returned, or the scan's end bound (`upperBound` when ascending,
+/// `lowerBound` when descending) when no index matches. When `step < 0` and
+/// `upperBound <= lowerBound` the scan is empty and `lowerBound` is returned
+/// without probing. `step` must be non-zero.
+///
+/// Each call to the predicate supplies the sources `[index, captures...]`
+/// permuted by the constant `argumentPermutation` table into the callee's
+/// declared argument slots: `permutation[j]` is the source feeding the
+/// callee's argument `j`, so the callee can preserve any argument layout
+/// (e.g. `(capture0, index, capture1)`).
 public record FindFirstNode(
         int[] argumentPermutation
 ) implements HIRNode {
