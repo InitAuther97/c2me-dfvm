@@ -13,17 +13,22 @@ import com.ishland.c2me.opts.dfc.common.ir.type.IrType;
 /// {@link KernelDescriptorNode}, passed as this node's first memory operand.
 /// The work item to sample is described by the {@link PackedVolumeNode}
 /// passed as its second memory operand — typically a degenerate volume whose
-/// origin is the mapped coordinate. The invocation exists only at HIR and
-/// yields the callee's value at that work item; the lowering batches
-/// invocations of the same callee into one volume fill and converts each to
-/// a load from the filled array. Its type is deduced from its callee during
-/// computation (FormalType.TOP until then).
+/// origin is the mapped coordinate. The packed volume is lowering metadata
+/// only: the callee's per-work-item expression reads its own arguments and
+/// never the packed volume. The invocation exists only at HIR and yields the
+/// callee's value at that work item; the lowering batches invocations of the
+/// same callee into one volume fill and converts each to a load from the
+/// filled array. Its type is deduced from its callee during computation
+/// (FormalType.TOP until then).
 public enum KernelInvokeNode implements HIRNode {
 
     INVOKE;
 
     @Override
     public void lowerToMid(IrGraph graph, int id, Canonicalizer canonicalizer) {
+        // TODO: wire the PackedVolumeNode metadata into the invocation
+        //       lowering: fill the shared array for the sampled volume and
+        //       replace each invocation with a load from it
     }
 
     @Override

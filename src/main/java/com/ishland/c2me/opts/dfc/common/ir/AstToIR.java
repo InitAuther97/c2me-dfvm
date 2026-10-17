@@ -8,6 +8,7 @@ import com.ishland.c2me.opts.dfc.common.ir.node.hir.kernel.KernelBeginNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.hir.kernel.KernelDescriptorNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.hir.kernel.KernelInvokeNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.hir.kernel.PackedVolumeNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.hir.value.LerpNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.ReturnNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.branch.RangeTestNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.constant.FloatConstantNode;
@@ -33,6 +34,7 @@ import net.minecraft.world.gen.densityfunction.DensityFunction;
 import net.minecraft.world.gen.densityfunction.DensityFunctionTypes;
 import net.minecraft.world.gen.densityfunction.FindTopSurfaceDensityFunction;
 import net.minecraft.world.gen.densityfunction.InterpolatedDensityFunction;
+import net.minecraft.world.gen.densityfunction.LerpDensityFunction;
 import net.minecraft.world.gen.densityfunction.SliceDensityFunction;
 import net.minecraft.world.gen.densityfunction.UnaryOperationDensityFunction;
 
@@ -171,6 +173,8 @@ public class AstToIR {
                     mapClamp(clamp, mapped, coordinates);
             case CacheDensityFunction cache ->
                     mapFunction(cache.input(), mapped, coordinates);
+            case LerpDensityFunction lerp ->
+                    mapLerp(lerp, mapped, coordinates);
             case InterpolatedDensityFunction interpolated ->
                     mapInterpolated(interpolated, coordinates);
             case SliceDensityFunction slice ->
@@ -212,6 +216,17 @@ public class AstToIR {
         final int min = addNode(new FloatConstantNode(clamp.min()));
         final int max = addNode(new FloatConstantNode(clamp.max()));
         return addNode(MinFPNode.MIN_F, addNode(MaxFPNode.MAX_F, input, min), max);
+    }
+
+    /// A lerp blends first and second by alpha, matching MathHelper.lerp:
+    /// `first + alpha * (second - first)`, with the sampler's exact
+    /// `alpha == 1` fast path. The `alpha == 0` fast path is not modeled. The
+    /// optimizer demotes the exact variant when `1.0F` cannot occur.
+    private int mapLerp(LerpDensityFunction lerp, Map<DensityFunction, Integer> mapped, Coordinates coordinates) {
+        final int alpha = mapFunction(lerp.alpha(), mapped, coordinates);
+        final int first = mapFunction(lerp.first(), mapped, coordinates);
+        final int second = mapFunction(lerp.second(), mapped, coordinates);
+        return addNode(LerpNode.LERP_EXACT, alpha, first, second);
     }
 
     /// A slice substitutes one axis of the lane's coordinate and samples the
@@ -260,11 +275,15 @@ public class AstToIR {
         final int v011 = invokeAt(callee, cellX, nextY, nextZ, one);
         final int v111 = invokeAt(callee, nextX, nextY, nextZ, one);
 
-        // MathHelper.lerp3: lerp(alphaZ, lerp2(x, y, lower), lerp2(x, y, upper)),
-        // with lerp(delta, start, end) = start + delta * (end - start)
-        final int lower = lerp(alphaY, lerp(alphaX, v000, v100), lerp(alphaX, v010, v110));
-        final int upper = lerp(alphaY, lerp(alphaX, v001, v101), lerp(alphaX, v011, v111));
-        return lerp(alphaZ, lower, upper);
+        // MathHelper.lerp3: lerp(alphaZ, lerp2(alphaX, alphaY, lower),
+        // lerp2(alphaX, alphaY, upper))
+        final int lower = addNode(LerpNode.LERP, alphaY,
+                addNode(LerpNode.LERP, alphaX, v000, v100),
+                addNode(LerpNode.LERP, alphaX, v010, v110));
+        final int upper = addNode(LerpNode.LERP, alphaY,
+                addNode(LerpNode.LERP, alphaX, v001, v101),
+                addNode(LerpNode.LERP, alphaX, v011, v111));
+        return addNode(LerpNode.LERP, alphaZ, lower, upper);
     }
 
     /// FindTopSurface samples the upper bound at (x, 0, z) (vanilla wraps the
@@ -317,12 +336,6 @@ public class AstToIR {
         return addNode(DivFPNode.DIV_F,
                 addNode(FPConvertNode.I2F, value),
                 addNode(new FloatConstantNode(cellSize)));
-    }
-
-    private int lerp(int alpha, int start, int end) {
-        // MathHelper.lerp: start + delta * (end - start)
-        return addNode(AddFPNode.ADD_F, start,
-                addNode(MulFPNode.MUL_F, alpha, addNode(SubFPNode.SUB_F, end, start)));
     }
 
     private int addNode(IrNode node, int... valueOperands) {

@@ -6,29 +6,48 @@ import com.ishland.c2me.opts.dfc.common.ir.graph.IrGraph;
 import com.ishland.c2me.opts.dfc.common.ir.node.IrNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.hir.HIRNode;
 import com.ishland.c2me.opts.dfc.common.ir.phase.scalar.Canonicalizer;
+import com.ishland.c2me.opts.dfc.common.ir.stamp.ForeignKernelStamp;
 import com.ishland.c2me.opts.dfc.common.ir.type.FormalType;
 import com.ishland.c2me.opts.dfc.common.ir.type.IrType;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.Objects;
 
-/// The descriptor of a kernel: declares the kernel's name and the assumed
-/// return value type (FormalType.TOP by default), used as this node's
-/// initial type. The actual return
-/// type is solved from the value fed into the ReturnNode of the program whose
-/// entry is linked from this descriptor (driven by
+/// The descriptor of a kernel: declares the kernel's name, the assumed
+/// return value type (FormalType.TOP by default) used as this node's initial
+/// type, and the metadata of a foreign implementation, if any.
+///
+/// A body kernel's actual return type is solved from the value fed into the
+/// ReturnNode of the program whose entry is linked from this descriptor
+/// (driven by
 /// {@link com.ishland.c2me.opts.dfc.common.ir.phase.hir.HIRCanonicalizationPhase}).
 /// That dependency is a lookup, not an edge, so the descriptor stays a root
 /// node and no loop forms through the kernel body. A {@link KernelBeginNode}
 /// takes a memory edge from its descriptor to mark the function it is the
 /// control flow source of, and a {@link KernelInvokeNode} takes a memory edge
 /// from it to mark its callee.
+///
+/// A foreign kernel (non-null {@code foreign}) has no implementation in the
+/// graph: it owns no {@link KernelBeginNode} and no program, and its declared
+/// return type is final. The metadata describes its runtime parameters, its
+/// compile-time constants and how the two are arranged into the foreign
+/// target's parameter order.
 public record KernelDescriptorNode(
         String name,
-        IrType returnType
+        IrType returnType,
+        @Nullable ForeignKernelStamp foreign
 ) implements HIRNode {
 
+    public KernelDescriptorNode(String name, IrType returnType) {
+        this(name, returnType, null);
+    }
+
     public KernelDescriptorNode(String name) {
-        this(name, FormalType.TOP);
+        this(name, FormalType.TOP, null);
+    }
+
+    public boolean isForeign() {
+        return foreign != null;
     }
 
     @Override
@@ -42,6 +61,10 @@ public record KernelDescriptorNode(
 
     @Override
     public IrType compute(IrGraph graph, int id, GraphContext ctx) {
+        if (foreign != null) {
+            // No body to solve from: the declared return type is final
+            return returnType;
+        }
         final int begin = findBegin(graph, id);
         if (begin == -1) {
             return null; // not linked to a function entry yet
@@ -73,7 +96,10 @@ public record KernelDescriptorNode(
 
     @Override
     public boolean isEqual(IrNode that) {
-        return that instanceof KernelDescriptorNode(String n, IrType t) && Objects.equals(name, n) && Objects.equals(returnType, t);
+        return that instanceof KernelDescriptorNode(String n, IrType t, ForeignKernelStamp f)
+                && Objects.equals(name, n)
+                && Objects.equals(returnType, t)
+                && Objects.equals(foreign, f);
     }
 
     @Override

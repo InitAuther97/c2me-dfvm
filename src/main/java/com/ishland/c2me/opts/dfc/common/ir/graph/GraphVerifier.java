@@ -100,6 +100,7 @@ public final class GraphVerifier {
                         "Duplicate program boundary node at %d", id);
                 case FunctionBeginNode ignored -> verifyEntry(graph, id, start);
                 case KernelBeginNode ignored -> verifyEntry(graph, id, start);
+                case KernelDescriptorNode descriptor -> verifyDescriptor(graph, id, descriptor);
                 case IfBranchNode ignored -> verifyIfBranch(graph, id);
                 case BranchBeginNode branch -> verifyBranchBegin(graph, id, branch);
                 case MergeNode ignored -> verifyMerge(graph, id);
@@ -133,6 +134,21 @@ public final class GraphVerifier {
         check(operands.size() == 1 && operands.getInt(0) == start,
                 "FunctionBeginNode %d must have START %d as its only control operand, got %s", id, start, operands);
         verifyBlockEnd(graph, id);
+    }
+
+    /// A foreign kernel has no implementation in the graph, so its descriptor
+    /// must not be linked to a kernel entry.
+    private static void verifyDescriptor(IrGraph graph, int id, KernelDescriptorNode descriptor) {
+        if (!descriptor.isForeign()) {
+            return;
+        }
+        final IntList usages = graph.getMemory().getUsages(id);
+        for (int i = 0; i < usages.size(); i++) {
+            final int usage = usages.getInt(i);
+            check(!(graph.getNode(usage) instanceof KernelBeginNode),
+                    "Foreign kernel descriptor %d (%s) must not be linked to KernelBeginNode %d",
+                    id, descriptor.name(), usage);
+        }
     }
 
     private static void verifyIfBranch(IrGraph graph, int id) {
