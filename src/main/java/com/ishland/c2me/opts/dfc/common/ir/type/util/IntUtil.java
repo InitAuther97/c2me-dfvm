@@ -50,6 +50,16 @@ public class IntUtil {
         return of(min4(p1, p2, p3, p4), max4(p1, p2, p3, p4));
     }
 
+    public static IntegerType min(IntegerType first, IntegerType second) {
+        if (!first.isDetermined() || !second.isDetermined()) return IntegerType.TOP;
+        return IntegerType.range(Math.min(first.min(), second.min()), Math.min(first.max(), second.max()));
+    }
+
+    public static IntegerType max(IntegerType first, IntegerType second) {
+        if (!first.isDetermined() || !second.isDetermined()) return IntegerType.TOP;
+        return IntegerType.range(Math.max(first.min(), second.min()), Math.max(first.max(), second.max()));
+    }
+
     /// For a sign-uniform divisor every rounding mode is monotone in each
     /// operand, so the four corner quotients bound the result exactly.
     public static IntegerType div(IntegerType first, IntegerType second, Rounding rounding) {

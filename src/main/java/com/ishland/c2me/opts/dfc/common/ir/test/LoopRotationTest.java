@@ -10,7 +10,7 @@ import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.IfBranchNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.MergeNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.ReturnNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.branch.PhiNode;
-import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.branch.RangeTestNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.hir.value.TestFPNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.constant.DoubleConstantNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.operator.AddFPNode;
 import com.ishland.c2me.opts.dfc.common.ir.phase.cfg.LoopRotation;
@@ -56,9 +56,10 @@ public class LoopRotationTest {
 
         final int zero = graph.addNode(new DoubleConstantNode(0));
         final int one = graph.addNode(new DoubleConstantNode(1));
+        final int nine = graph.addNode(new DoubleConstantNode(9));
         final int phi = graph.addNode(PhiNode.PHI);
         final int vBack = graph.addNode(AddFPNode.ADD_D);
-        final int cond = graph.addNode(new RangeTestNode(0, 9));
+        final int cond = graph.addNode(TestFPNode.MIN_INCLUSIVE_MAX_INCLUSIVE);
 
         control.appendEdge(H, phi);
         value.appendEdge(zero, phi);
@@ -66,12 +67,15 @@ public class LoopRotationTest {
         value.appendEdge(phi, vBack);
         value.appendEdge(one, vBack);
         value.appendEdge(phi, cond);
+        value.appendEdge(zero, cond);
+        value.appendEdge(nine, cond);
         value.appendEdge(cond, ifOld);
         value.appendEdge(phi, ret);
 
         // Scheduling, mimicking late scheduling: phi inputs on the edge they
         // flow through, loop check at the header
         control.appendEdge(entry, zero);
+        control.appendEdge(entry, nine);
         control.appendEdge(latch, vBack);
         control.appendEdge(latch, one);
         control.appendEdge(H, cond);

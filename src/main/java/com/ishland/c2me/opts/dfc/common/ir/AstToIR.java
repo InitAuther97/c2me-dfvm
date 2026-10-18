@@ -9,22 +9,28 @@ import com.ishland.c2me.opts.dfc.common.ir.node.hir.kernel.KernelDescriptorNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.hir.kernel.KernelInvokeNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.hir.kernel.PackedVolumeNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.hir.value.LerpNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.hir.value.TestFPNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.hir.value.TestINode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.ReturnNode;
-import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.branch.RangeTestNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.constant.DoubleConstantNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.constant.FloatConstantNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.constant.IntConstantNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.operator.AddFPNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.operator.AddINode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.operator.DivFPNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.operator.DivINode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.operator.FPConvertNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.operator.MaxFPNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.operator.MaxINode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.operator.MinFPNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.operator.MinINode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.operator.ModINode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.operator.MulFPNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.operator.MulINode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.operator.RoundFPNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.operator.SubFPNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.operator.SubINode;
+import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.operator.cond.SelectNode;
 import net.minecraft.util.math.Direction;
 import net.minecraft.world.gen.densityfunction.BinaryOperationDensityFunction;
 import net.minecraft.world.gen.densityfunction.CacheDensityFunction;
@@ -33,6 +39,7 @@ import net.minecraft.world.gen.densityfunction.ConstantDensityFunction;
 import net.minecraft.world.gen.densityfunction.DensityFunction;
 import net.minecraft.world.gen.densityfunction.DensityFunctionTypes;
 import net.minecraft.world.gen.densityfunction.FindTopSurfaceDensityFunction;
+import net.minecraft.world.gen.densityfunction.GradientDensityFunction;
 import net.minecraft.world.gen.densityfunction.InterpolatedDensityFunction;
 import net.minecraft.world.gen.densityfunction.LerpDensityFunction;
 import net.minecraft.world.gen.densityfunction.SliceDensityFunction;
@@ -133,8 +140,10 @@ public class AstToIR {
         final int y = graph.addNode(new KernelArgumentNode("y"));
         final int z = graph.addNode(new KernelArgumentNode("z"));
         final int value = mapFunction(function, new IdentityHashMap<>(), new Coordinates(x, y, z));
-        final int predicate = addNode(new RangeTestNode(Math.nextUp(0.0), Double.MAX_VALUE),
-                addNode(FPConvertNode.F2D, value));
+        final int predicate = addNode(TestFPNode.MIN_INCLUSIVE_MAX_INCLUSIVE,
+                addNode(FPConvertNode.F2D, value),
+                addNode(new DoubleConstantNode(Math.nextUp(0.0))),
+                addNode(new DoubleConstantNode(Double.MAX_VALUE)));
         finishKernel(kernel, predicate);
         return kernel.descriptor();
     }
@@ -171,6 +180,8 @@ public class AstToIR {
                     mapUnary(unary, mapped, coordinates);
             case ClampDensityFunction clamp ->
                     mapClamp(clamp, mapped, coordinates);
+            case GradientDensityFunction gradient ->
+                    mapGradient(gradient, coordinates);
             case CacheDensityFunction cache ->
                     mapFunction(cache.input(), mapped, coordinates);
             case LerpDensityFunction lerp ->
@@ -216,6 +227,50 @@ public class AstToIR {
         final int min = addNode(new FloatConstantNode(clamp.min()));
         final int max = addNode(new FloatConstantNode(clamp.max()));
         return addNode(MinFPNode.MIN_F, addNode(MaxFPNode.MAX_F, input, min), max);
+    }
+
+    /// Mirrors vanilla's compiled gradient sampler: `coordinateFactor` is
+    /// computed once from the endpoints, then the tiled (clamped, for
+    /// CLAMP_TO_EDGE) relative coordinate is multiplied by it and offset by
+    /// `fromValue`.
+    private int mapGradient(GradientDensityFunction gradient, Coordinates coordinates) {
+        final int coordinate = switch (gradient.axis()) {
+            case X -> coordinates.x();
+            case Y -> coordinates.y();
+            case Z -> coordinates.z();
+        };
+        final int from = gradient.fromCoordinate();
+        final int to = gradient.toCoordinate();
+        final float factor = (gradient.toValue() - gradient.fromValue()) / (to - from);
+        final int local = switch (gradient.tiling()) {
+            case CLAMP_TO_EDGE -> {
+                final int clamped = addNode(MinINode.MIN_I,
+                        addNode(MaxINode.MAX_I, coordinate,
+                                addNode(new IntConstantNode(Math.min(from, to)))),
+                        addNode(new IntConstantNode(Math.max(from, to))));
+                yield addNode(SubINode.SUB_I, clamped, addNode(new IntConstantNode(from)));
+            }
+            case REPEAT -> addNode(ModINode.MOD_FLOOR,
+                    addNode(SubINode.SUB_I, coordinate, addNode(new IntConstantNode(from))),
+                    addNode(new IntConstantNode(to - from)));
+            case MIRRORED_REPEAT -> {
+                final int relative = addNode(SubINode.SUB_I, coordinate, addNode(new IntConstantNode(from)));
+                final int range = addNode(new IntConstantNode(to - from));
+                final int tileIndex = addNode(DivINode.DIV_FLOOR, relative, range);
+                final int localCoordinate = addNode(SubINode.SUB_I, relative,
+                        addNode(MulINode.MUL_I, tileIndex, range));
+                final int reversed = addNode(SubINode.SUB_I, range, localCoordinate);
+                final int parity = addNode(ModINode.MOD_TRUNC, tileIndex, addNode(new IntConstantNode(2)));
+                final int even = addNode(TestINode.MIN_INCLUSIVE_MAX_INCLUSIVE, parity,
+                        addNode(new IntConstantNode(0)), addNode(new IntConstantNode(0)));
+                yield addNode(SelectNode.SELECT, even, localCoordinate, reversed);
+            }
+        };
+        return addNode(AddFPNode.ADD_F,
+                addNode(new FloatConstantNode(gradient.fromValue())),
+                addNode(MulFPNode.MUL_F,
+                        addNode(FPConvertNode.I2F, local),
+                        addNode(new FloatConstantNode(factor))));
     }
 
     /// A lerp blends first and second by alpha, matching MathHelper.lerp:

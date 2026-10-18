@@ -1,4 +1,4 @@
-package com.ishland.c2me.opts.dfc.common.ir.node.mir.value.branch;
+package com.ishland.c2me.opts.dfc.common.ir.node.mir.value.operator.cond;
 
 import com.ishland.c2me.opts.dfc.common.ir.GraphContext;
 import com.ishland.c2me.opts.dfc.common.ir.export.GraphBuilder;
