@@ -5,4 +5,9 @@ import net.minecraft.util.math.Direction;
 
 /// Mirrors `SliceDensityFunction`. The value operand is `[input]`.
 public record SliceTree(Direction.Axis axis, int coordinate) implements TreeIRNode {
+
+    @Override
+    public int getCost() {
+        return 1;
+    }
 }

@@ -13,4 +13,9 @@ public record GradientTree(
         float fromValue,
         float toValue
 ) implements TreeIRNode {
+
+    @Override
+    public int getCost() {
+        return 4;
+    }
 }

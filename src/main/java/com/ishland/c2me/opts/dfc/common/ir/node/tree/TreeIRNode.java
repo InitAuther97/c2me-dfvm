@@ -51,8 +51,10 @@ public interface TreeIRNode extends IrNode {
     default void export(IrGraph graph, int id, GraphBuilder builder) {
     }
 
+    /// The estimated cost of evaluating this node once for a single element,
+    /// excluding the cost of its operands. One unit is roughly one cheap
+    /// scalar operation; divisions, transcendentals and noise sampling are
+    /// proportionally higher.
     @Override
-    default int getCost() {
-        return 0;
-    }
+    int getCost();
 }

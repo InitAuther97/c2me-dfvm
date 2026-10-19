@@ -10,4 +10,9 @@ import net.minecraft.world.gen.densityfunction.SplineDensityFunction;
 public record SplineTree(
         Spline<SplineDensityFunction.DensityFunctionWrapper> spline
 ) implements TreeIRNode {
+
+    @Override
+    public int getCost() {
+        return 32;
+    }
 }

@@ -7,4 +7,9 @@ import net.minecraft.world.gen.densityfunction.RoundingDensityFunction;
 public record RoundingTree(
         RoundingDensityFunction.Mode type
 ) implements TreeIRNode {
+
+    @Override
+    public int getCost() {
+        return 16;
+    }
 }

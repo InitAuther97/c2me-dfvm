@@ -15,24 +15,30 @@ import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.IfBranchNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.MergeNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.ProgramNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.ReturnNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.tree.RootNode;
+import com.ishland.c2me.opts.dfc.common.ir.phase.PhaseStage;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 
 import java.util.BitSet;
 
-/// Verifies the structural invariants of the control spine:
+/// Verifies the structural invariants of the graph for a given
+/// {@link PhaseStage}.
 ///
-/// - A graph holds exactly one {@link ProgramNode#START} and one
-///   {@link ProgramNode#END}; START fans out to at least one
-///   {@link FunctionBeginNode} and every {@link ReturnNode} flows into END.
-/// - Every {@link BeginBlockNode} has exactly one control edge to the
-///   {@link EndBlockNode} terminating its block.
-/// - An {@link IfBranchNode} has exactly two {@link BranchBeginNode}
-///   successors (TRUE at slot 0, FALSE at slot 1); a {@link MergeNode} has
-///   exactly two {@link BeginBlockNode} predecessors.
-/// - Every function's control flow starting at its FunctionBeginNode eventually
-///   flows into exactly one ReturnNode, and the program table of
-///   {@link IrGraph#defineProgram} mirrors these entry/exit pairs.
+/// All stages share the boundary rules: the graph holds exactly one
+/// {@link ProgramNode#START} and one {@link ProgramNode#END}, START has no
+/// control inputs and END has no control outputs.
+///
+/// - {@link PhaseStage#TREE}: START points to one or more {@link RootNode}s;
+///   every RootNode takes its only control edge from START and is consumed
+///   by END. No programs are defined and no other control nodes exist.
+/// - {@link PhaseStage#HIR}: START fans out to at least one
+///   {@link KernelBeginNode}, and every kernel flows into exactly one
+///   {@link ReturnNode} collected by END.
+/// - {@link PhaseStage#MIR}: the same program structure with
+///   {@link FunctionBeginNode} entries, additionally validating the block
+///   structure ({@link IfBranchNode}, {@link BranchBeginNode},
+///   {@link MergeNode}, {@link ReturnNode}).
 ///
 /// Value and memory edges, as well as scheduling edges from control nodes
 /// to non-control nodes, carry no requirements and are not checked.
@@ -41,35 +47,103 @@ public final class GraphVerifier {
     private GraphVerifier() {
     }
 
-    /// Checks all invariants, throwing {@link AssertionError} on the first
-    /// violation found.
-    public static void verify(GraphContext ctx) {
+    /// Checks all invariants of the given stage, throwing {@link AssertionError}
+    /// on the first violation found.
+    public static void verify(GraphContext ctx, PhaseStage stage) {
         final IrGraph graph = ctx.getIrGraph();
-        final EdgeAccessor control = graph.getControl();
         final int start = ctx.getProgramStart();
         final int end = ctx.getProgramEnd();
+        verifyBoundaries(graph, start, end);
+        switch (stage) {
+            case TREE -> verifyTree(graph, start, end);
+            case HIR -> verifyPrograms(graph, start, end, true);
+            case MIR -> verifyPrograms(graph, start, end, false);
+        }
+    }
 
+    private static void verifyBoundaries(IrGraph graph, int start, int end) {
         check(graph.get(start) != null && graph.getNode(start) == ProgramNode.START,
                 "Program start %d is not ProgramNode.START", start);
         check(graph.get(end) != null && graph.getNode(end) == ProgramNode.END,
                 "Program end %d is not ProgramNode.END", end);
-
-        // START has no control input and fans out to function begin nodes only
-        check(control.getOperands(start).isEmpty(),
+        check(graph.getControl().getOperands(start).isEmpty(),
                 "Program start %d must not have control inputs", start);
+        check(graph.getControl().getUsages(end).isEmpty(),
+                "Program end %d must not have control outputs", end);
+    }
+
+    /// Tree stage: every RootNode consumes START and is consumed by END; no
+    /// other control-spine nodes and no defined programs.
+    private static void verifyTree(IrGraph graph, int start, int end) {
+        final EdgeAccessor control = graph.getControl();
         final IntList entries = control.getUsages(start);
         check(!entries.isEmpty(),
-                "Program start %d must point to at least one function begin node", start);
+                "Tree stage program start %d must point to at least one RootNode", start);
+        for (int i = 0; i < entries.size(); i++) {
+            final int root = entries.getInt(i);
+            check(graph.getNode(root) instanceof RootNode,
+                    "Tree stage program start %d may only point to RootNodes, got %s at %d",
+                    start, name(graph, root), root);
+        }
+        final IntList endOperands = control.getOperands(end);
+        for (int i = 0; i < endOperands.size(); i++) {
+            final int operand = endOperands.getInt(i);
+            check(graph.getNode(operand) instanceof RootNode,
+                    "Program end %d may only be pointed to by RootNodes in the tree stage, got %s at %d",
+                    end, name(graph, operand), operand);
+        }
+        check(graph.countPrograms() == 0,
+                "Tree stage must not define programs, got %d", graph.countPrograms());
+        for (int id = 0; id < graph.nodes().size(); id++) {
+            if (graph.get(id) == null) continue;
+            final IrNode node = graph.getNode(id);
+            if (node instanceof ProgramNode boundary) {
+                check((id == start) == (boundary == ProgramNode.START),
+                        "Duplicate program boundary node at %d", id);
+            } else if (node instanceof RootNode) {
+                final IntList operands = control.getOperands(id);
+                check(operands.size() == 1 && operands.getInt(0) == start,
+                        "RootNode %d must have START %d as its only control operand, got %s",
+                        id, start, operands);
+                int spineSuccessors = 0;
+                final IntList usages = control.getUsages(id);
+                for (int i = 0; i < usages.size(); i++) {
+                    final int usage = usages.getInt(i);
+                    final IrNode usageNode = graph.getNode(usage);
+                    if (usageNode instanceof ControlNode || usageNode instanceof RootNode) {
+                        check(usage == end,
+                                "RootNode %d may only point to END %d on the control spine, got %s at %d",
+                                id, end, name(graph, usage), usage);
+                        spineSuccessors++;
+                    }
+                }
+                check(spineSuccessors == 1,
+                        "RootNode %d must flow into END %d, got %s", id, end, usages);
+            } else {
+                check(!(node instanceof ControlNode),
+                        "Tree stage may not contain control node %s at %d", name(graph, id), id);
+            }
+        }
+    }
+
+    private static void verifyPrograms(IrGraph graph, int start, int end, boolean hir) {
+        final EdgeAccessor control = graph.getControl();
+        final String entryKind = hir ? "KernelBeginNode" : "FunctionBeginNode";
+        final String stageName = hir ? "HIR" : "MIR";
+
+        final IntList entries = control.getUsages(start);
+        check(!entries.isEmpty(),
+                "Program start %d must point to at least one %s entry", start, entryKind);
         for (int i = 0; i < entries.size(); i++) {
             final int entry = entries.getInt(i);
-            check(graph.getNode(entry) instanceof FunctionBeginNode || graph.getNode(entry) instanceof KernelBeginNode,
-                    "Program start %d may only point to function begin nodes, got %s at %d",
-                    start, name(graph, entry), entry);
+            check(hir
+                            ? graph.getNode(entry) instanceof KernelBeginNode
+                            : graph.getNode(entry) instanceof FunctionBeginNode,
+                    "Program start %d may only point to %s entries in the %s stage, got %s at %d",
+                    start, entryKind, stageName, name(graph, entry), entry);
         }
 
-        // END has no control output and collects ReturnNodes only
-        check(control.getUsages(end).isEmpty(),
-                "Program end %d must not have control outputs", end);
+        // END collects ReturnNodes only
         final IntList returns = control.getOperands(end);
         for (int i = 0; i < returns.size(); i++) {
             final int ret = returns.getInt(i);
@@ -80,8 +154,8 @@ public final class GraphVerifier {
 
         // The program table mirrors the entry/exit pairs of the control edges
         check(graph.countPrograms() == entries.size(),
-                "Defined program count %d does not match %d FunctionBeginNodes under START",
-                graph.countPrograms(), entries.size());
+                "Defined program count %d does not match %d %s entries under START",
+                graph.countPrograms(), entries.size(), entryKind);
         for (int i = 0; i < graph.countPrograms(); i++) {
             final long program = graph.getProgramAt(i);
             final int begin = LongUtil.getLow(program);
@@ -124,7 +198,7 @@ public final class GraphVerifier {
             final IrNode node = graph.getNode(id);
             if (node instanceof ControlNode && !(node instanceof ProgramNode)) {
                 check(visited.get(id),
-                        "Control node %d (%s) is not reachable from any FunctionBeginNode", id, name(graph, id));
+                        "Control node %d (%s) is not reachable from any program entry", id, name(graph, id));
             }
         }
     }
@@ -132,7 +206,7 @@ public final class GraphVerifier {
     private static void verifyEntry(IrGraph graph, int id, int start) {
         final IntList operands = graph.getControl().getOperands(id);
         check(operands.size() == 1 && operands.getInt(0) == start,
-                "FunctionBeginNode %d must have START %d as its only control operand, got %s", id, start, operands);
+                "Program entry %d must have START %d as its only control operand, got %s", id, start, operands);
         verifyBlockEnd(graph, id);
     }
 
@@ -222,13 +296,13 @@ public final class GraphVerifier {
         final BitSet forward = walk(graph, begin, false);
         final BitSet reachesReturn = walk(graph, ret, true);
         check(forward.get(ret),
-                "ReturnNode %d is not reachable from FunctionBeginNode %d", ret, begin);
+                "ReturnNode %d is not reachable from program entry %d", ret, begin);
         for (int id = forward.nextSetBit(0); id >= 0; id = forward.nextSetBit(id + 1)) {
             check(reachesReturn.get(id),
                     "Control node %d (%s) does not eventually flow into ReturnNode %d",
                     id, name(graph, id), ret);
             check(id == ret || graph.getNode(id) != ReturnNode.RET,
-                    "FunctionBeginNode %d reaches another ReturnNode %d besides %d", begin, id, ret);
+                    "Program entry %d reaches another ReturnNode %d besides %d", begin, id, ret);
             check(!visited.get(id),
                     "Control node %d (%s) is shared between programs", id, name(graph, id));
         }

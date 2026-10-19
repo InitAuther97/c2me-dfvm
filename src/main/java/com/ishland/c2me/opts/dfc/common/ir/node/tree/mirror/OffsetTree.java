@@ -11,6 +11,11 @@ public sealed interface OffsetTree extends TreeIRNode
 
     RegistryEntry<FractalNoiseParameters> offsetNoise();
 
+    @Override
+    default int getCost() {
+        return 128;
+    }
+
     record Shift(RegistryEntry<FractalNoiseParameters> offsetNoise) implements OffsetTree {
     }
 

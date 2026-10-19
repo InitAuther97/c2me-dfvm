@@ -6,5 +6,10 @@ import com.ishland.c2me.opts.dfc.common.ir.node.tree.TreeIRNode;
 /// the referenced density function.
 public enum RegistryEntryHolderTree implements TreeIRNode {
 
-    INSTANCE
+    INSTANCE;
+
+    @Override
+    public int getCost() {
+        return 0;
+    }
 }

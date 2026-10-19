@@ -8,4 +8,13 @@ import net.minecraft.world.gen.densityfunction.BinaryOperationDensityFunction;
 public record BinaryOperationTree(
         BinaryOperationDensityFunction.Type type
 ) implements TreeIRNode {
+
+    @Override
+    public int getCost() {
+        return switch (type) {
+            case ADD, SUB, MIN, MAX -> 1;
+            case MUL -> 4;
+            case DIV -> 16;
+        };
+    }
 }

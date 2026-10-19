@@ -6,5 +6,10 @@ import com.ishland.c2me.opts.dfc.common.ir.node.tree.TreeIRNode;
 /// `blend_density`). The value operand is `[input]`.
 public enum BlendDensityInputTree implements TreeIRNode {
 
-    INSTANCE
+    INSTANCE;
+
+    @Override
+    public int getCost() {
+        return 4;
+    }
 }

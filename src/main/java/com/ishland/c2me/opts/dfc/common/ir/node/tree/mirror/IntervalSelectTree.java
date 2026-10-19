@@ -8,4 +8,9 @@ import it.unimi.dsi.fastutil.floats.FloatList;
 public record IntervalSelectTree(
         FloatList thresholds
 ) implements TreeIRNode {
+
+    @Override
+    public int getCost() {
+        return thresholds.size() + 1;
+    }
 }

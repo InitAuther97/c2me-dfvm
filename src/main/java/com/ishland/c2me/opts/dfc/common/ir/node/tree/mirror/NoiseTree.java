@@ -11,4 +11,9 @@ public record NoiseTree(
         double xzScale,
         double yScale
 ) implements TreeIRNode {
+
+    @Override
+    public int getCost() {
+        return 128;
+    }
 }

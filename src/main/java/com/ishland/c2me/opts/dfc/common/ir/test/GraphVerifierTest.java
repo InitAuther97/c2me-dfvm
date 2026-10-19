@@ -3,6 +3,7 @@ package com.ishland.c2me.opts.dfc.common.ir.test;
 import com.ishland.c2me.opts.dfc.common.ir.GraphContext;
 import com.ishland.c2me.opts.dfc.common.ir.graph.GraphVerifier;
 import com.ishland.c2me.opts.dfc.common.ir.graph.IrGraph;
+import com.ishland.c2me.opts.dfc.common.ir.phase.PhaseStage;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.BranchBeginNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.FunctionBeginNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.FunctionNode;
@@ -60,11 +61,11 @@ public class GraphVerifierTest {
     }
 
     public void testStraightLineProgramPasses() {
-        GraphVerifier.verify(buildStraightLine());
+        GraphVerifier.verify(buildStraightLine(), PhaseStage.MIR);
     }
 
     public void testDiamondPasses() {
-        GraphVerifier.verify(buildDiamond());
+        GraphVerifier.verify(buildDiamond(), PhaseStage.MIR);
     }
 
     public void testSchedulingEdgesAreTolerated() {
@@ -74,11 +75,11 @@ public class GraphVerifierTest {
         final int value = graph.addNode(new OpaqueInputNode(BooleanType.BOT));
         final int entry = graph.getControl().getUsages(ctx.getProgramStart()).getInt(0);
         graph.getControl().appendEdge(entry, value);
-        GraphVerifier.verify(ctx);
+        GraphVerifier.verify(ctx, PhaseStage.MIR);
     }
 
     public void testStartWithoutEntryFails() {
-        expectViolation("empty program", () -> GraphVerifier.verify(new GraphContext()));
+        expectViolation("empty program", () -> GraphVerifier.verify(new GraphContext(), PhaseStage.MIR));
     }
 
     public void testIfBranchWithOneSuccessorFails() {
@@ -90,7 +91,7 @@ public class GraphVerifierTest {
         final int btFalse = control.getOperands(merge).getInt(1);
         final int ifNode = control.getOperands(btFalse).getInt(0);
         control.removeEdge(ifNode, btFalse);
-        expectViolation("if with one successor", () -> GraphVerifier.verify(ctx));
+        expectViolation("if with one successor", () -> GraphVerifier.verify(ctx, PhaseStage.MIR));
     }
 
     public void testSwappedBranchOrderFails() {
@@ -114,7 +115,7 @@ public class GraphVerifierTest {
         control.appendEdge(merge, ret);
         control.appendEdge(ret, ctx.getProgramEnd());
         graph.defineProgram(entry, ret);
-        expectViolation("swapped branch order", () -> GraphVerifier.verify(ctx));
+        expectViolation("swapped branch order", () -> GraphVerifier.verify(ctx, PhaseStage.MIR));
     }
 
     public void testMergeWithOnePredecessorFails() {
@@ -125,7 +126,7 @@ public class GraphVerifierTest {
         final int merge = control.getOperands(ret).getInt(0);
         final int btFalse = control.getOperands(merge).getInt(1);
         control.removeEdge(btFalse, merge);
-        expectViolation("merge with one predecessor", () -> GraphVerifier.verify(ctx));
+        expectViolation("merge with one predecessor", () -> GraphVerifier.verify(ctx, PhaseStage.MIR));
     }
 
     public void testReturnNotConnectedToEndFails() {
@@ -133,7 +134,7 @@ public class GraphVerifierTest {
         final IrGraph graph = ctx.getIrGraph();
         final int ret = graph.getControl().getOperands(ctx.getProgramEnd()).getInt(0);
         graph.getControl().removeEdge(ret, ctx.getProgramEnd());
-        expectViolation("return not flowing into END", () -> GraphVerifier.verify(ctx));
+        expectViolation("return not flowing into END", () -> GraphVerifier.verify(ctx, PhaseStage.MIR));
     }
 
     public void testUndefinedProgramFails() {
@@ -147,7 +148,7 @@ public class GraphVerifierTest {
         graph.getControl().appendEdge(ctx.getProgramStart(), entry2);
         graph.getControl().appendEdge(entry2, ret2);
         graph.getControl().appendEdge(ret2, ctx.getProgramEnd());
-        expectViolation("program missing from the program table", () -> GraphVerifier.verify(ctx));
+        expectViolation("program missing from the program table", () -> GraphVerifier.verify(ctx, PhaseStage.MIR));
     }
 
     public void testUnreachableControlNodeFails() {
@@ -159,6 +160,6 @@ public class GraphVerifierTest {
         final int btFalse = graph.addNode(BranchBeginNode.FALSE);
         graph.getControl().appendEdge(ifNode, btTrue);
         graph.getControl().appendEdge(ifNode, btFalse);
-        expectViolation("unreachable control nodes", () -> GraphVerifier.verify(ctx));
+        expectViolation("unreachable control nodes", () -> GraphVerifier.verify(ctx, PhaseStage.MIR));
     }
 }

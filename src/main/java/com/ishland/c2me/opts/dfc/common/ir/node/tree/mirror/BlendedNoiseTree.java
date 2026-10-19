@@ -10,4 +10,9 @@ public record BlendedNoiseTree(
         double yFactor,
         double smearScaleMultiplier
 ) implements TreeIRNode {
+
+    @Override
+    public int getCost() {
+        return 128;
+    }
 }

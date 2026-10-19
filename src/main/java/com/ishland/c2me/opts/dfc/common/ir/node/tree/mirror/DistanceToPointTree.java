@@ -6,4 +6,9 @@ import net.minecraft.util.math.Vec3i;
 
 /// Mirrors `DistanceToPointDensityFunction`.
 public record DistanceToPointTree(Vec3i point, DistanceMetric metric) implements TreeIRNode {
+
+    @Override
+    public int getCost() {
+        return 4;
+    }
 }

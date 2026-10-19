@@ -8,4 +8,9 @@ public record RangeChoiceTree(
         float minInclusive,
         float maxExclusive
 ) implements TreeIRNode {
+
+    @Override
+    public int getCost() {
+        return 2;
+    }
 }

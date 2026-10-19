@@ -10,6 +10,7 @@ import com.ishland.c2me.opts.dfc.common.ir.node.hir.kernel.KernelBeginNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.FunctionBeginNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.ProgramNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.ReturnNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.tree.RootNode;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntArrays;
 
@@ -86,7 +87,8 @@ public class Canonicalizer implements Runnable {
     /// subject to dead code elimination even when it has no usages.
     private static boolean isControlSpine(IrNode node) {
         return node instanceof ProgramNode || node instanceof FunctionBeginNode
-                || node instanceof KernelBeginNode || node instanceof ReturnNode;
+                || node instanceof KernelBeginNode || node instanceof ReturnNode
+                || node instanceof RootNode;
     }
 
 

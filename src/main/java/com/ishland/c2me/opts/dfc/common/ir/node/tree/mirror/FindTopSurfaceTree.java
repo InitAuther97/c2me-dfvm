@@ -8,4 +8,9 @@ public record FindTopSurfaceTree(
         int lowerBound,
         int cellHeight
 ) implements TreeIRNode {
+
+    @Override
+    public int getCost() {
+        return 64;
+    }
 }
