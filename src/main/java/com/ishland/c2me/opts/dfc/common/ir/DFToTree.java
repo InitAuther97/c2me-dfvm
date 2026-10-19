@@ -58,9 +58,10 @@ import java.util.IdentityHashMap;
 import java.util.Map;
 
 /// Lowers grouped vanilla {@link DensityFunction} trees into a single
-/// tree-stage graph. Nodes are shared between all trees by identity. Each
-/// group becomes one {@link GroupTagTree} node, and every root in the group
-/// consumes that group node together with its mapped function value.
+/// tree-stage graph. Nodes are deduplicated by identity within each group
+/// only. Every group becomes one {@link GroupTagTree} node, and every root
+/// in the group consumes that group node together with its mapped function
+/// value.
 public class DFToTree {
 
     /// Each inner collection is one group: its roots consume the same group
@@ -75,7 +76,6 @@ public class DFToTree {
 
     private final GraphContext context = new GraphContext();
     private final IrGraph graph = context.getIrGraph();
-    private final Map<DensityFunction, Integer> mapped = new IdentityHashMap<>();
 
     private DFToTree() {
     }
@@ -84,8 +84,9 @@ public class DFToTree {
     /// `[function, group]` as value operands.
     private void addGroup(Collection<? extends DensityFunction> functions) {
         final int group = graph.addNode(GroupTagTree.TAG);
+        final Map<DensityFunction, Integer> mapped = new IdentityHashMap<>();
         for (final DensityFunction function : functions) {
-            final int value = mapFunction(function);
+            final int value = mapFunction(function, mapped);
             final int root = graph.addNode(RootNode.INSTANCE);
             graph.getControl().appendEdge(context.getProgramStart(), root);
             graph.getControl().appendEdge(root, context.getProgramEnd());
@@ -94,23 +95,23 @@ public class DFToTree {
         }
     }
 
-    private int mapFunction(DensityFunction function) {
+    private int mapFunction(DensityFunction function, Map<DensityFunction, Integer> mapped) {
         final Integer existing = mapped.get(function);
         if (existing != null) {
             return existing;
         }
         final int id = switch (function) {
             case DensityFunctionTypes.RegistryEntryHolder holder ->
-                    add(RegistryEntryHolderTree.INSTANCE, mapFunction(holder.function().value()));
+                    add(RegistryEntryHolderTree.INSTANCE, mapFunction(holder.function().value(), mapped));
             case ConstantDensityFunction constant ->
                     add(new ConstantTree(constant.value()));
             case BinaryOperationDensityFunction binary ->
                     add(new BinaryOperationTree(binary.type()),
-                            mapFunction(binary.left()), mapFunction(binary.right()));
+                            mapFunction(binary.left(), mapped), mapFunction(binary.right(), mapped));
             case UnaryOperationDensityFunction unary ->
-                    add(new UnaryOperationTree(unary.type()), mapFunction(unary.input()));
+                    add(new UnaryOperationTree(unary.type()), mapFunction(unary.input(), mapped));
             case ClampDensityFunction clamp ->
-                    add(new ClampTree(clamp.min(), clamp.max()), mapFunction(clamp.input()));
+                    add(new ClampTree(clamp.min(), clamp.max()), mapFunction(clamp.input(), mapped));
             case BlendDensityFunction blend ->
                     add(switch (blend) {
                         case BLEND_ALPHA -> BlendDensityTree.BLEND_ALPHA;
@@ -118,12 +119,14 @@ public class DFToTree {
                         case BEARDIFIER -> BlendDensityTree.BEARDIFIER;
                     });
             case BlendDensityDensityFunction blend ->
-                    add(BlendDensityInputTree.INSTANCE, mapFunction(blend.input()));
+                    add(BlendDensityInputTree.INSTANCE, mapFunction(blend.input(), mapped));
             case CacheDensityFunction cache ->
-                    add(CacheTree.INSTANCE, mapFunction(cache.input()));
+                    add(CacheTree.INSTANCE, mapFunction(cache.input(), mapped));
             case NoiseDensityFunction noise ->
                     add(new NoiseTree(noise.noise(), noise.xzScale(), noise.yScale()),
-                            mapFunction(noise.shiftX()), mapFunction(noise.shiftY()), mapFunction(noise.shiftZ()));
+                            mapFunction(noise.shiftX(), mapped),
+                            mapFunction(noise.shiftY(), mapped),
+                            mapFunction(noise.shiftZ(), mapped));
             case EndOuterIslandsDensityFunction ignored ->
                     add(EndOuterIslandsTree.INSTANCE);
             case DistanceToPointDensityFunction distance ->
@@ -140,35 +143,41 @@ public class DFToTree {
                     add(new OffsetTree.ShiftB(shiftB.offsetNoise()));
             case RoundingDensityFunction rounding ->
                     add(new RoundingTree(rounding.type()),
-                            mapFunction(rounding.input()), mapFunction(rounding.multiple()));
+                            mapFunction(rounding.input(), mapped), mapFunction(rounding.multiple(), mapped));
             case PowerDensityFunction power ->
-                    add(PowerTree.INSTANCE, mapFunction(power.base()), mapFunction(power.exponent()));
+                    add(PowerTree.INSTANCE,
+                            mapFunction(power.base(), mapped), mapFunction(power.exponent(), mapped));
             case SplineDensityFunction spline -> {
                 final IntArrayList locationFunctions = new IntArrayList();
-                spline.spline().visit(wrapper -> locationFunctions.add(mapFunction(wrapper.function())));
+                spline.spline().visit(wrapper ->
+                        locationFunctions.add(mapFunction(wrapper.function(), mapped)));
                 yield add(new SplineTree(spline.spline()), locationFunctions.toIntArray());
             }
             case LerpDensityFunction lerp ->
                     add(LerpTree.INSTANCE,
-                            mapFunction(lerp.alpha()), mapFunction(lerp.first()), mapFunction(lerp.second()));
+                            mapFunction(lerp.alpha(), mapped),
+                            mapFunction(lerp.first(), mapped),
+                            mapFunction(lerp.second(), mapped));
             case InterpolatedDensityFunction interpolated ->
                     add(new InterpolatedTree(interpolated.cellSizeXz(), interpolated.cellSizeY()),
-                            mapFunction(interpolated.input()));
+                            mapFunction(interpolated.input(), mapped));
             case SliceDensityFunction slice ->
-                    add(new SliceTree(slice.axis(), slice.coordinate()), mapFunction(slice.input()));
+                    add(new SliceTree(slice.axis(), slice.coordinate()),
+                            mapFunction(slice.input(), mapped));
             case FindTopSurfaceDensityFunction findTopSurface ->
                     add(new FindTopSurfaceTree(findTopSurface.lowerBound(), findTopSurface.cellHeight()),
-                            mapFunction(findTopSurface.density()), mapFunction(findTopSurface.upperBound()));
+                            mapFunction(findTopSurface.density(), mapped),
+                            mapFunction(findTopSurface.upperBound(), mapped));
             case RangeChoiceDensityFunction rangeChoice ->
                     add(new RangeChoiceTree(rangeChoice.minInclusive(), rangeChoice.maxExclusive()),
-                            mapFunction(rangeChoice.input()),
-                            mapFunction(rangeChoice.whenInRange()),
-                            mapFunction(rangeChoice.whenOutOfRange()));
+                            mapFunction(rangeChoice.input(), mapped),
+                            mapFunction(rangeChoice.whenInRange(), mapped),
+                            mapFunction(rangeChoice.whenOutOfRange(), mapped));
             case IntervalSelectDensityFunction intervalSelect -> {
                 final IntArrayList operands = new IntArrayList();
-                operands.add(mapFunction(intervalSelect.input()));
+                operands.add(mapFunction(intervalSelect.input(), mapped));
                 for (final DensityFunction branch : intervalSelect.functions()) {
-                    operands.add(mapFunction(branch));
+                    operands.add(mapFunction(branch, mapped));
                 }
                 yield add(new IntervalSelectTree(intervalSelect.thresholds()), operands.toIntArray());
             }
