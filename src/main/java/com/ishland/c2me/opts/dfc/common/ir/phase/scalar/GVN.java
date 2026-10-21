@@ -101,6 +101,6 @@ public class GVN extends RunCanonicalizerPhase implements IntHash.Strategy, High
         final var nodeA = graph.getNode(a);
         final var nodeB = graph.getNode(b);
         return Objects.equals(vOpsA, vOpsB) && Objects.equals(mOpsA, mOpsB) &&
-                ((nodeA == nodeB || nodeA.getClass() == nodeB.getClass()) && nodeA.isEqual(nodeB));
+                (((nodeA == nodeB) || (nodeA.getClass() == nodeB.getClass())) && nodeA.isEqual(nodeB));
     }
 }
