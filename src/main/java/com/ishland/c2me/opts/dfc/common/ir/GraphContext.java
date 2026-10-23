@@ -2,6 +2,7 @@ package com.ishland.c2me.opts.dfc.common.ir;
 
 import com.ishland.c2me.opts.dfc.common.ir.graph.GraphVerifier;
 import com.ishland.c2me.opts.dfc.common.ir.graph.IrGraph;
+import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.ConstantPoolNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.FunctionBeginNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.ProgramNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.ReturnNode;
@@ -16,17 +17,23 @@ import java.util.BitSet;
 /// program begin ({@link ProgramNode#START}) and one program exit
 /// ({@link ProgramNode#END}): over control edges, START fans out to the
 /// {@link FunctionBeginNode} of every executable function, and every
-/// {@link ReturnNode} flows into END. These structural invariants are
-/// checked by {@link GraphVerifier}.
+/// {@link ReturnNode} flows into END. A {@link ConstantPoolNode} also sits
+/// between START and END as the memory source every constant node consumes,
+/// keeping constants reachable from the program start. These structural
+/// invariants are checked by {@link GraphVerifier}.
 public class GraphContext {
     private final IrGraph node = new IrGraph();
-    private final int start, end;
+    private final int start, end, constantPool;
     private final ReferenceList<DataType> aliasMapping = new ReferenceArrayList<>();
     private final BitSet enabledFeatures = new BitSet();
 
     public GraphContext() {
         this.start = this.node.addNode(ProgramNode.START);
         this.end = this.node.addNode(ProgramNode.END);
+        this.constantPool = this.node.addNode(ConstantPoolNode.POOL);
+        this.node.getControl().appendEdge(this.start, this.constantPool);
+        this.node.getControl().appendEdge(this.constantPool, this.end);
+        this.node.setConstantPool(this.constantPool);
     }
 
     public int getProgramStart() {
@@ -35,6 +42,11 @@ public class GraphContext {
 
     public int getProgramEnd() {
         return this.end;
+    }
+
+    /// The pool every constant node consumes through a memory operand.
+    public int getConstantPool() {
+        return this.constantPool;
     }
 
     public int allocateAlias(DataType dataType) {

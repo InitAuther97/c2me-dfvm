@@ -7,6 +7,7 @@ import com.ishland.c2me.opts.dfc.common.ir.node.hir.kernel.KernelBeginNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.hir.kernel.KernelDescriptorNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.BeginBlockNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.BranchBeginNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.ConstantPoolNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.ControlNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.EndBlockNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.FunctionBeginNode;
@@ -54,6 +55,7 @@ public final class GraphVerifier {
         final int start = ctx.getProgramStart();
         final int end = ctx.getProgramEnd();
         verifyBoundaries(graph, start, end);
+        verifyConstantPool(graph, start, end, ctx.getConstantPool());
         switch (stage) {
             case TREE -> verifyTree(graph, start, end);
             case HIR -> verifyPrograms(graph, start, end, true);
@@ -72,24 +74,60 @@ public final class GraphVerifier {
                 "Program end %d must not have control outputs", end);
     }
 
+    /// The constant pool takes control from START, flows into END and is the
+    /// memory source of every pooled constant.
+    private static void verifyConstantPool(IrGraph graph, int start, int end, int pool) {
+        check(graph.get(pool) != null && graph.getNode(pool) instanceof ConstantPoolNode,
+                "Constant pool %d is not ConstantPoolNode.POOL", pool);
+        final IntList operands = graph.getControl().getOperands(pool);
+        check(operands.size() == 1 && operands.getInt(0) == start,
+                "ConstantPoolNode %d must have START %d as its only control operand, got %s",
+                pool, start, operands);
+        int spineSuccessors = 0;
+        final IntList usages = graph.getControl().getUsages(pool);
+        for (int i = 0; i < usages.size(); i++) {
+            final int usage = usages.getInt(i);
+            if (graph.getNode(usage) instanceof ControlNode) {
+                check(usage == end,
+                        "ConstantPoolNode %d may only point to END %d on the control spine, got %s at %d",
+                        pool, end, name(graph, usage), usage);
+                spineSuccessors++;
+            }
+        }
+        check(spineSuccessors == 1,
+                "ConstantPoolNode %d must flow into END %d, got %s", pool, end, usages);
+        int pools = 0;
+        for (int id = 0; id < graph.nodes().size(); id++) {
+            if (graph.get(id) != null && graph.getNode(id) instanceof ConstantPoolNode) {
+                check(id == pool, "Duplicate ConstantPoolNode at %d", id);
+                pools++;
+            }
+        }
+        check(pools == 1, "Graph must contain exactly one ConstantPoolNode, got %d", pools);
+    }
+
     /// Tree stage: every RootNode consumes START and is consumed by END; no
     /// other control-spine nodes and no defined programs.
     private static void verifyTree(IrGraph graph, int start, int end) {
         final EdgeAccessor control = graph.getControl();
         final IntList entries = control.getUsages(start);
-        check(!entries.isEmpty(),
-                "Tree stage program start %d must point to at least one RootNode", start);
+        int rootCount = 0;
         for (int i = 0; i < entries.size(); i++) {
             final int root = entries.getInt(i);
-            check(graph.getNode(root) instanceof RootNode,
-                    "Tree stage program start %d may only point to RootNodes, got %s at %d",
+            final IrNode node = graph.getNode(root);
+            check(node instanceof RootNode || node instanceof ConstantPoolNode,
+                    "Tree stage program start %d may only point to RootNodes and the constant pool, got %s at %d",
                     start, name(graph, root), root);
+            if (node instanceof RootNode) rootCount++;
         }
+        check(rootCount > 0,
+                "Tree stage program start %d must point to at least one RootNode", start);
         final IntList endOperands = control.getOperands(end);
         for (int i = 0; i < endOperands.size(); i++) {
             final int operand = endOperands.getInt(i);
-            check(graph.getNode(operand) instanceof RootNode,
-                    "Program end %d may only be pointed to by RootNodes in the tree stage, got %s at %d",
+            final IrNode node = graph.getNode(operand);
+            check(node instanceof RootNode || node instanceof ConstantPoolNode,
+                    "Program end %d may only be pointed to by RootNodes and the constant pool in the tree stage, got %s at %d",
                     end, name(graph, operand), operand);
         }
         check(graph.countPrograms() == 0,
@@ -119,6 +157,8 @@ public final class GraphVerifier {
                 }
                 check(spineSuccessors == 1,
                         "RootNode %d must flow into END %d, got %s", id, end, usages);
+            } else if (node instanceof ConstantPoolNode) {
+                // verified by verifyConstantPool
             } else {
                 check(!(node instanceof ControlNode),
                         "Tree stage may not contain control node %s at %d", name(graph, id), id);
@@ -132,30 +172,33 @@ public final class GraphVerifier {
         final String stageName = hir ? "HIR" : "MIR";
 
         final IntList entries = control.getUsages(start);
-        check(!entries.isEmpty(),
-                "Program start %d must point to at least one %s entry", start, entryKind);
+        int programEntries = 0;
         for (int i = 0; i < entries.size(); i++) {
             final int entry = entries.getInt(i);
-            check(hir
-                            ? graph.getNode(entry) instanceof KernelBeginNode
-                            : graph.getNode(entry) instanceof FunctionBeginNode,
-                    "Program start %d may only point to %s entries in the %s stage, got %s at %d",
+            final IrNode node = graph.getNode(entry);
+            if (node instanceof ConstantPoolNode) continue;
+            check(hir ? node instanceof KernelBeginNode : node instanceof FunctionBeginNode,
+                    "Program start %d may only point to %s entries and the constant pool in the %s stage, got %s at %d",
                     start, entryKind, stageName, name(graph, entry), entry);
+            programEntries++;
         }
+        check(programEntries > 0,
+                "Program start %d must point to at least one %s entry", start, entryKind);
 
-        // END collects ReturnNodes only
+        // END collects ReturnNodes and the constant pool only
         final IntList returns = control.getOperands(end);
         for (int i = 0; i < returns.size(); i++) {
             final int ret = returns.getInt(i);
-            check(graph.getNode(ret) == ReturnNode.RET,
-                    "Program end %d may only be pointed to by ReturnNode, got %s at %d",
+            final IrNode node = graph.getNode(ret);
+            check(node == ReturnNode.RET || node instanceof ConstantPoolNode,
+                    "Program end %d may only be pointed to by ReturnNode and the constant pool, got %s at %d",
                     end, name(graph, ret), ret);
         }
 
         // The program table mirrors the entry/exit pairs of the control edges
-        check(graph.countPrograms() == entries.size(),
+        check(graph.countPrograms() == programEntries,
                 "Defined program count %d does not match %d %s entries under START",
-                graph.countPrograms(), entries.size(), entryKind);
+                graph.countPrograms(), programEntries, entryKind);
         for (int i = 0; i < graph.countPrograms(); i++) {
             final long program = graph.getProgramAt(i);
             final int begin = LongUtil.getLow(program);
@@ -172,6 +215,9 @@ public final class GraphVerifier {
             switch (graph.getNode(id)) {
                 case ProgramNode boundary -> check((id == start) == (boundary == ProgramNode.START),
                         "Duplicate program boundary node at %d", id);
+                case ConstantPoolNode ignored -> {
+                    // verified by verifyConstantPool
+                }
                 case FunctionBeginNode ignored -> verifyEntry(graph, id, start);
                 case KernelBeginNode ignored -> verifyEntry(graph, id, start);
                 case KernelDescriptorNode descriptor -> verifyDescriptor(graph, id, descriptor);
@@ -196,7 +242,8 @@ public final class GraphVerifier {
         for (int id = 0; id < graph.nodes().size(); id++) {
             if (graph.get(id) == null) continue;
             final IrNode node = graph.getNode(id);
-            if (node instanceof ControlNode && !(node instanceof ProgramNode)) {
+            if (node instanceof ControlNode && !(node instanceof ProgramNode)
+                    && !(node instanceof ConstantPoolNode)) {
                 check(visited.get(id),
                         "Control node %d (%s) is not reachable from any program entry", id, name(graph, id));
             }

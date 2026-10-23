@@ -5,8 +5,12 @@ import com.ishland.c2me.opts.dfc.common.ir.graph.cfg.CFGAccess;
 import com.ishland.c2me.opts.dfc.common.ir.graph.value.NodeState;
 import com.ishland.c2me.opts.dfc.common.ir.node.IrNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.hir.kernel.KernelBeginNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.hir.kernel.KernelDescriptorNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.FunctionBeginNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.ReturnNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.constant.ConstantNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.function.FunctionNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.tree.mirror.ConstantTree;
 import com.ishland.c2me.opts.dfc.common.ir.type.IrType;
 import com.ishland.flowsched.util.Assertions;
 import it.unimi.dsi.fastutil.ints.*;
@@ -30,6 +34,7 @@ public class IrGraph {
     private final ReferenceArrayList<CFGAccess> cfgs;
 
     private int size, modCount;
+    private int constantPool = -1;
 
     public IrGraph() {
         programs = new LongArrayList();
@@ -46,6 +51,13 @@ public class IrGraph {
         this.cfgs = graph.cfgs.clone();
         this.size = graph.size;
         this.modCount = 0;
+        this.constantPool = graph.constantPool;
+    }
+
+    /// Sets the pool that every constant node consumes through a memory
+    /// operand.
+    public void setConstantPool(int constantPool) {
+        this.constantPool = constantPool;
     }
 
     public void defineProgram(int begin, int end) {
@@ -113,7 +125,20 @@ public class IrGraph {
     }
 
     public int addNode(IrNode node) {
-        return allocate(new NodeState(node, node.initialType()));
+        final int id = allocate(new NodeState(node, node.initialType()));
+        if (constantPool != -1 && isPooledConstant(node)) {
+            memory.appendEdge(constantPool, id);
+        }
+        return id;
+    }
+
+    /// Whether {@code node} must consume the constant pool through a memory
+    /// operand, keeping it reachable from the program start.
+    private static boolean isPooledConstant(IrNode node) {
+        return node instanceof ConstantNode
+                || node instanceof KernelDescriptorNode
+                || node instanceof FunctionNode
+                || node instanceof ConstantTree;
     }
 
     protected int allocate(NodeState item) {
