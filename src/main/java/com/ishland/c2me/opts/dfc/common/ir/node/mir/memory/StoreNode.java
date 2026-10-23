@@ -7,6 +7,7 @@ import com.ishland.c2me.opts.dfc.common.ir.node.IrNode;
 import com.ishland.c2me.opts.dfc.common.ir.phase.scalar.Canonicalizer;
 import com.ishland.c2me.opts.dfc.common.ir.type.FormalType;
 import com.ishland.c2me.opts.dfc.common.ir.type.IrType;
+import com.ishland.c2me.opts.dfc.common.ir.type.util.TypeUtil;
 
 public enum StoreNode implements MemOpNode {
 
@@ -19,7 +20,7 @@ public enum StoreNode implements MemOpNode {
 
     @Override
     public IrType compute(IrGraph graph, int id, GraphContext ctx) {
-        return null;
+        return TypeUtil.getMemoryType(graph, IrNode.memory(graph, id, 0));
     }
 
     @Override

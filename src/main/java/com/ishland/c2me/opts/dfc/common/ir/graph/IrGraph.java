@@ -120,6 +120,7 @@ public class IrGraph {
         return get(id).node();
     }
 
+    /// Complete node type, including both results of a memory/value producer.
     public IrType getType(int id) {
         return get(id).type();
     }

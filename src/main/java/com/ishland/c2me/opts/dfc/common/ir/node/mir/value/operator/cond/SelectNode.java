@@ -9,6 +9,7 @@ import com.ishland.c2me.opts.dfc.common.ir.phase.scalar.Canonicalizer;
 import com.ishland.c2me.opts.dfc.common.ir.type.FormalType;
 import com.ishland.c2me.opts.dfc.common.ir.type.mir.BooleanType;
 import com.ishland.c2me.opts.dfc.common.ir.type.IrType;
+import com.ishland.c2me.opts.dfc.common.ir.type.util.TypeUtil;
 
 /// Selects the second value operand when the first (boolean) operand is
 /// true, and the third otherwise. The result type is the taken branch's type
@@ -25,9 +26,9 @@ public enum SelectNode implements ValueOpNode {
 
     @Override
     public IrType compute(IrGraph graph, int id, GraphContext ctx) {
-        final BooleanType condition = (BooleanType) graph.getType(IrNode.data(graph, id, 0));
-        final IrType ifTrue = graph.getType(IrNode.data(graph, id, 1));
-        final IrType ifFalse = graph.getType(IrNode.data(graph, id, 2));
+        final BooleanType condition = (BooleanType) TypeUtil.getValueType(graph, IrNode.data(graph, id, 0));
+        final IrType ifTrue = TypeUtil.getValueType(graph, IrNode.data(graph, id, 1));
+        final IrType ifFalse = TypeUtil.getValueType(graph, IrNode.data(graph, id, 2));
         if (condition == BooleanType.TRUE) {
             return ifTrue;
         }
@@ -45,7 +46,7 @@ public enum SelectNode implements ValueOpNode {
             IrNode.transferDownstream(graph.getValue(), id, ifTrue, canonicalizer);
             return true;
         }
-        final BooleanType condition = (BooleanType) graph.getType(IrNode.data(graph, id, 0));
+        final BooleanType condition = (BooleanType) TypeUtil.getValueType(graph, IrNode.data(graph, id, 0));
         if (condition == BooleanType.TRUE) {
             IrNode.transferDownstream(graph.getValue(), id, ifTrue, canonicalizer);
             return true;

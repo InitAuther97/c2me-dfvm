@@ -14,6 +14,7 @@ import java.util.logging.Level;
 /// may be emitted multiple times.
 public interface ValueOpNode extends MIRNode {
     static IrType verifyValue(IrType type) {
+        type = type.getValueType();
         if (type == FormalType.BOT) {
             final var error = new IllegalStateException("ValueNode produces FormalType.BOT");
             LOGGER.log(Level.SEVERE, "ValueNode produces FormalType.BOT! Please check the IR graph.", error);

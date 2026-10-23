@@ -5,9 +5,9 @@ import com.ishland.c2me.opts.dfc.common.ir.export.GraphBuilder;
 import com.ishland.c2me.opts.dfc.common.ir.graph.EdgeAccessor;
 import com.ishland.c2me.opts.dfc.common.ir.graph.value.GraphUtil;
 import com.ishland.c2me.opts.dfc.common.ir.graph.IrGraph;
-import com.ishland.c2me.opts.dfc.common.ir.graph.value.NodeState;
 import com.ishland.c2me.opts.dfc.common.ir.phase.scalar.Canonicalizer;
 import com.ishland.c2me.opts.dfc.common.ir.type.IrType;
+import com.ishland.c2me.opts.dfc.common.ir.type.util.TypeUtil;
 
 import java.util.logging.Logger;
 
@@ -37,8 +37,10 @@ public interface IrNode {
      * @param id    Node's id
      * @param ctx   Graph context
      * @return computed type, null if no changes
-     * @implNote Implementers must use {@link NodeState#type()} or {@link IrGraph#getType}
-     * to retrieve necessary type information, assuming their types are already computed
+     * @implNote Read stored types through {@link TypeUtil#getValueType(IrGraph, int)} or
+     * {@link TypeUtil#getMemoryType(IrGraph, int)}, according to the result consumed. Use
+     * {@link IrGraph#getType} only when the complete type is required; never
+     * recursively compute operand types.
      */
     IrType compute(IrGraph graph, int id, GraphContext ctx);
 
@@ -52,8 +54,10 @@ public interface IrNode {
      * @param canonicalizer canonicalizer, if you need to add far nodes for optimization
      * @param ctx           graph context, including alias allocation, etc.
      * @return if canonicalizer should add neighbors to work queue
-     * @implNote Implementers must use {@link NodeState#type()} or {@link IrGraph#getType}
-     * to retrieve necessary type information, assuming their types are already computed
+     * @implNote Read stored types through {@link TypeUtil#getValueType(IrGraph, int)} or
+     * {@link TypeUtil#getMemoryType(IrGraph, int)}, according to the result consumed. Use
+     * {@link IrGraph#getType} only when the complete type is required; never
+     * recursively compute operand types.
      */
     boolean optimize(IrGraph graph, int id, Canonicalizer canonicalizer, GraphContext ctx);
 

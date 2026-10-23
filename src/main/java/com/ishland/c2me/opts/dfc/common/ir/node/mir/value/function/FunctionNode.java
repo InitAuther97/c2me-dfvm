@@ -9,6 +9,7 @@ import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.FunctionBeginNode;
 import com.ishland.c2me.opts.dfc.common.ir.phase.scalar.Canonicalizer;
 import com.ishland.c2me.opts.dfc.common.ir.type.FormalType;
 import com.ishland.c2me.opts.dfc.common.ir.type.IrType;
+import com.ishland.c2me.opts.dfc.common.ir.type.util.TypeUtil;
 
 import java.util.Objects;
 
@@ -51,7 +52,7 @@ public record FunctionNode(
         if (returned.isEmpty()) {
             return null; // a function may return no value, carrying no value operand
         }
-        return graph.getType(returned.getInt(0));
+        return TypeUtil.getValueType(graph, returned.getInt(0));
     }
 
     private static int findBegin(IrGraph graph, int id) {

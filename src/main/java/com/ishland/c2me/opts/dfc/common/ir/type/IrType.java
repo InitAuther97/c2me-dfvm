@@ -10,6 +10,16 @@ public abstract class IrType {
         this.type = type;
     }
 
+    /// Type exposed to value consumers. Single-result types project to themselves.
+    public IrType getValueType() {
+        return this;
+    }
+
+    /// Type exposed to memory consumers. Marker-edge types project to themselves.
+    public IrType getMemoryType() {
+        return this;
+    }
+
     /// Compute if this type is a subtype of the given type
     public final boolean is(IrType other) {
         return this == FormalType.BOT || other == FormalType.TOP ||

@@ -8,6 +8,7 @@ import com.ishland.c2me.opts.dfc.common.ir.node.hir.HIRNode;
 import com.ishland.c2me.opts.dfc.common.ir.phase.scalar.Canonicalizer;
 import com.ishland.c2me.opts.dfc.common.ir.type.IrType;
 import com.ishland.c2me.opts.dfc.common.ir.type.mir.IntegerType;
+import com.ishland.c2me.opts.dfc.common.ir.type.util.TypeUtil;
 
 import java.util.Arrays;
 
@@ -50,8 +51,8 @@ public record FindFirstNode(
 
     @Override
     public IrType compute(IrGraph graph, int id, GraphContext ctx) {
-        final var lowerBound = (IntegerType) graph.getType(IrNode.data(graph, id, 0));
-        final var upperBound = (IntegerType) graph.getType(IrNode.data(graph, id, 1));
+        final var lowerBound = (IntegerType) TypeUtil.getValueType(graph, IrNode.data(graph, id, 0));
+        final var upperBound = (IntegerType) TypeUtil.getValueType(graph, IrNode.data(graph, id, 1));
         if (!lowerBound.isDetermined() || !upperBound.isDetermined()) {
             return null;
         }

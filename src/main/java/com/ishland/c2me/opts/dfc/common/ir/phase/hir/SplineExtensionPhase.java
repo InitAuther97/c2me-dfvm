@@ -7,6 +7,7 @@ import com.ishland.c2me.opts.dfc.common.ir.node.hir.spline.SplineNode;
 import com.ishland.c2me.opts.dfc.common.ir.phase.HighTierPhase;
 import com.ishland.c2me.opts.dfc.common.ir.type.IrType;
 import com.ishland.c2me.opts.dfc.common.ir.type.mir.FloatType;
+import com.ishland.c2me.opts.dfc.common.ir.type.util.TypeUtil;
 import com.ishland.flowsched.util.Assertions;
 
 /// This pass analyzes spline nodes and does proper extending or merging
@@ -54,7 +55,7 @@ public class SplineExtensionPhase implements HighTierPhase {
             if (!(graph.getNode(lastId) instanceof SplineEntry(float derivative1, float location1))) {
                 continue;
             }
-            final IrType coordinateType = graph.getType(coordinate);
+            final IrType coordinateType = TypeUtil.getValueType(graph, coordinate);
             if (!(coordinateType instanceof FloatType range) || !range.isDetermined()) {
                 continue; // input range unknown, cannot extend
             }

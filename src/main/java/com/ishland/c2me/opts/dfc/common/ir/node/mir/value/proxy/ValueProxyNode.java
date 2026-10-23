@@ -8,6 +8,7 @@ import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.ValueOpNode;
 import com.ishland.c2me.opts.dfc.common.ir.phase.scalar.Canonicalizer;
 import com.ishland.c2me.opts.dfc.common.ir.type.FormalType;
 import com.ishland.c2me.opts.dfc.common.ir.type.IrType;
+import com.ishland.c2me.opts.dfc.common.ir.type.util.TypeUtil;
 import com.ishland.flowsched.util.Assertions;
 
 public enum ValueProxyNode implements ProxyNode, ValueOpNode {
@@ -23,7 +24,7 @@ public enum ValueProxyNode implements ProxyNode, ValueOpNode {
         final var operands = graph.getValue().getOperands(id);
         Assertions.assertTrue(operands.size() == 1);
         final int input = operands.getInt(0);
-        return graph.getType(input);
+        return TypeUtil.getValueType(graph, input);
     }
 
     @Override

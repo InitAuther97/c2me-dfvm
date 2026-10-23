@@ -7,6 +7,7 @@ import com.ishland.c2me.opts.dfc.common.ir.node.mir.ProxyNode;
 import com.ishland.c2me.opts.dfc.common.ir.phase.scalar.Canonicalizer;
 import com.ishland.c2me.opts.dfc.common.ir.type.FormalType;
 import com.ishland.c2me.opts.dfc.common.ir.type.IrType;
+import com.ishland.c2me.opts.dfc.common.ir.type.util.TypeUtil;
 import com.ishland.flowsched.util.Assertions;
 
 public enum MemProxyNode implements ProxyNode, MemOpNode {
@@ -19,10 +20,10 @@ public enum MemProxyNode implements ProxyNode, MemOpNode {
 
     @Override
     public IrType compute(IrGraph graph, int id, GraphContext ctx) {
-        final var operands = graph.getValue().getOperands(id);
+        final var operands = graph.getMemory().getOperands(id);
         Assertions.assertTrue(operands.size() == 1);
         final int input = operands.getInt(0);
-        return graph.getType(input);
+        return TypeUtil.getMemoryType(graph, input);
     }
 
     @Override

@@ -9,6 +9,7 @@ import com.ishland.c2me.opts.dfc.common.ir.phase.scalar.Canonicalizer;
 import com.ishland.c2me.opts.dfc.common.ir.stamp.ForeignKernelStamp;
 import com.ishland.c2me.opts.dfc.common.ir.type.FormalType;
 import com.ishland.c2me.opts.dfc.common.ir.type.IrType;
+import com.ishland.c2me.opts.dfc.common.ir.type.util.TypeUtil;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Objects;
@@ -71,7 +72,7 @@ public record KernelNode(
         if (returned.isEmpty()) {
             return null; // body is still being constructed
         }
-        return graph.getType(returned.getInt(0));
+        return TypeUtil.getValueType(graph, returned.getInt(0));
     }
 
     private static int findRoot(IrGraph graph, int id) {

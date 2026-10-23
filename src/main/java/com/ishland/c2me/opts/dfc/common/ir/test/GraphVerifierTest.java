@@ -5,6 +5,7 @@ import com.ishland.c2me.opts.dfc.common.ir.LongUtil;
 import com.ishland.c2me.opts.dfc.common.ir.graph.GraphVerifier;
 import com.ishland.c2me.opts.dfc.common.ir.graph.IrGraph;
 import com.ishland.c2me.opts.dfc.common.ir.phase.PhaseStage;
+import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.BeginBlockNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.BranchBeginNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.FunctionBeginNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.function.FunctionNode;
@@ -52,10 +53,14 @@ public class GraphVerifierTest {
         return ctx;
     }
 
-    private static void expectViolation(String name, Runnable action) {
+    private static void expectViolation(String name, Runnable action, String... expectedMessages) {
         try {
             action.run();
         } catch (AssertionError e) {
+            for (String expected : expectedMessages) {
+                Assert.assertTrue(e.getMessage() != null && e.getMessage().contains(expected),
+                        name + ": unexpected violation: " + e.getMessage());
+            }
             return;
         }
         Assert.fail(name + ": expected AssertionError from GraphVerifier");
@@ -69,14 +74,25 @@ public class GraphVerifierTest {
         GraphVerifier.verify(buildDiamond(), PhaseStage.MIR);
     }
 
-    public void testSchedulingEdgesAreTolerated() {
+    public void testSchedulingEdgesFollowControlSuccessors() {
         final GraphContext ctx = buildDiamond();
         final IrGraph graph = ctx.getIrGraph();
-        // Pin a value node to a block; scheduling edges carry no requirements
-        final int value = graph.addNode(new OpaqueInputNode(BooleanType.BOT));
-        final int entry = LongUtil.getLow(graph.getProgramAt(0));
-        graph.getControl().appendEdge(entry, value);
-        GraphVerifier.verify(ctx, PhaseStage.MIR);
+        final var control = graph.getControl();
+        for (int id = 0; id < graph.nodes().size(); id++) {
+            if (!(graph.getNode(id) instanceof BeginBlockNode)) continue;
+            final int value = graph.addNode(new OpaqueInputNode(BooleanType.BOT));
+            final int terminator = control.getUsages(id).getInt(0);
+            final int operandIndex = control.getOperands(terminator).indexOf(id);
+            control.appendEdge(id, value); // Scheduling follows the block terminator.
+            GraphVerifier.verify(ctx, PhaseStage.MIR);
+
+            control.removeEdge(id, terminator);
+            control.appendEdge(id, terminator); // A terminator after scheduling is invalid.
+            expectViolation("scheduling before terminator", () -> GraphVerifier.verify(ctx, PhaseStage.MIR),
+                    "must place control-flow successors before scheduling edges");
+            control.removeEdge(id, terminator);
+            control.addEdgePair(id, 0, terminator, operandIndex);
+        }
     }
 
     public void testStartWithoutEntryFails() {

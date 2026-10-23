@@ -10,6 +10,7 @@ import com.ishland.c2me.opts.dfc.common.ir.stamp.VolumeStamp;
 import com.ishland.c2me.opts.dfc.common.ir.type.IrType;
 import com.ishland.c2me.opts.dfc.common.ir.type.hir.StampType;
 import com.ishland.c2me.opts.dfc.common.ir.type.mir.IntegerType;
+import com.ishland.c2me.opts.dfc.common.ir.type.util.TypeUtil;
 import com.ishland.flowsched.util.Assertions;
 
 /// Metadata of a kernel invocation: records the volume of work items actually
@@ -43,15 +44,15 @@ public enum PackedVolumeNode implements StampNode {
         final var operands = graph.getValue().getOperands(id);
         Assertions.assertTrue(operands.size() == 9, "packed volume must have exactly 9 operands");
         return StampType.create(new VolumeStamp(
-                (IntegerType) graph.getType(operands.getInt(0)),
-                (IntegerType) graph.getType(operands.getInt(1)),
-                (IntegerType) graph.getType(operands.getInt(2)),
-                (IntegerType) graph.getType(operands.getInt(3)),
-                (IntegerType) graph.getType(operands.getInt(4)),
-                (IntegerType) graph.getType(operands.getInt(5)),
-                (IntegerType) graph.getType(operands.getInt(6)),
-                (IntegerType) graph.getType(operands.getInt(7)),
-                (IntegerType) graph.getType(operands.getInt(8))
+                (IntegerType) TypeUtil.getValueType(graph, operands.getInt(0)),
+                (IntegerType) TypeUtil.getValueType(graph, operands.getInt(1)),
+                (IntegerType) TypeUtil.getValueType(graph, operands.getInt(2)),
+                (IntegerType) TypeUtil.getValueType(graph, operands.getInt(3)),
+                (IntegerType) TypeUtil.getValueType(graph, operands.getInt(4)),
+                (IntegerType) TypeUtil.getValueType(graph, operands.getInt(5)),
+                (IntegerType) TypeUtil.getValueType(graph, operands.getInt(6)),
+                (IntegerType) TypeUtil.getValueType(graph, operands.getInt(7)),
+                (IntegerType) TypeUtil.getValueType(graph, operands.getInt(8))
         ));
     }
 

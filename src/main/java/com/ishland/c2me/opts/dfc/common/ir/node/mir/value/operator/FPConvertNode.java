@@ -10,6 +10,7 @@ import com.ishland.c2me.opts.dfc.common.ir.type.mir.DoubleType;
 import com.ishland.c2me.opts.dfc.common.ir.type.mir.FloatType;
 import com.ishland.c2me.opts.dfc.common.ir.type.mir.IntegerType;
 import com.ishland.c2me.opts.dfc.common.ir.type.IrType;
+import com.ishland.c2me.opts.dfc.common.ir.type.util.TypeUtil;
 import com.ishland.flowsched.util.Assertions;
 
 public enum FPConvertNode implements ValueOpNode, FPCommonOp {
@@ -29,7 +30,7 @@ public enum FPConvertNode implements ValueOpNode, FPCommonOp {
         final var operands = graph.getValue().getOperands(id);
         Assertions.assertTrue(operands.size() == 1, "none or multiple operands are available");
         final int operand = operands.getInt(0);
-        final var type = graph.getType(operand);
+        final var type = TypeUtil.getValueType(graph, operand);
         if (!type.isDetermined()) return initialType();
         return switch (this) {
             case F2D -> {

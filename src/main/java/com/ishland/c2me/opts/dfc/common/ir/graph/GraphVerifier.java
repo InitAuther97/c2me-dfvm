@@ -2,6 +2,7 @@ package com.ishland.c2me.opts.dfc.common.ir.graph;
 
 import com.ishland.c2me.opts.dfc.common.ir.GraphContext;
 import com.ishland.c2me.opts.dfc.common.ir.LongUtil;
+import com.ishland.c2me.opts.dfc.common.ir.graph.cfg.CFGAccess;
 import com.ishland.c2me.opts.dfc.common.ir.node.IrNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.hir.kernel.KernelArgumentNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.hir.kernel.KernelRootNode;
@@ -24,6 +25,8 @@ import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.ReturnNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.tree.RootNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.tree.TreeIRNode;
 import com.ishland.c2me.opts.dfc.common.ir.phase.PhaseStage;
+import com.ishland.c2me.opts.dfc.common.ir.type.mir.BooleanType;
+import com.ishland.c2me.opts.dfc.common.ir.type.util.TypeUtil;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 
@@ -47,8 +50,9 @@ import java.util.BitSet;
 ///   structure ({@link IfBranchNode}, {@link BranchBeginNode},
 ///   {@link MergeNode}, {@link ReturnNode}).
 ///
-/// HIR checks value/memory acyclicity and kernel ownership. MIR value and
-/// memory edges and scheduling edges are not structurally checked.
+/// HIR checks value/memory acyclicity and kernel ownership. Control-flow
+/// successors must precede scheduling usages. MIR value/memory operand types
+/// and scheduling placement are not otherwise checked.
 public final class GraphVerifier {
 
     private GraphVerifier() {
@@ -62,10 +66,29 @@ public final class GraphVerifier {
         final int end = ctx.getProgramEnd();
         verifyBoundaries(graph, start, end);
         verifyConstantPool(graph, start, end, ctx.getConstantPool());
+        verifyControlOrdering(graph);
         switch (stage) {
             case TREE -> verifyTree(graph, start, end);
             case HIR -> verifyHir(graph, start, end);
             case MIR -> verifyPrograms(graph, start, end);
+        }
+    }
+
+    /// Control-flow successors form a prefix of every control node's usages.
+    /// Together with the block rules, this puts every block terminator at slot 0.
+    private static void verifyControlOrdering(IrGraph graph) {
+        for (int id = 0; id < graph.nodes().size(); id++) {
+            if (graph.get(id) == null || !(graph.getNode(id) instanceof ControlNode)) continue;
+            boolean scheduling = false;
+            for (int usage : graph.getControl().getUsages(id)) {
+                if (graph.getNode(usage) instanceof ControlNode) {
+                    check(!scheduling,
+                            "Control node %d (%s) must place control-flow successors before scheduling edges, got control node %d after a scheduling edge",
+                            id, name(graph, id), usage);
+                } else {
+                    scheduling = true;
+                }
+            }
         }
     }
 
@@ -390,6 +413,11 @@ public final class GraphVerifier {
                         "Control node %d (%s) is not reachable from any program entry", id, name(graph, id));
             }
         }
+        // Build loop analyses only after control structure, ordering, and
+        // program ownership have been validated.
+        for (int i = 0; i < graph.countPrograms(); i++) {
+            verifyLoopConditions(graph, i);
+        }
     }
 
     private static void verifyEntry(IrGraph graph, int id, int start) {
@@ -443,9 +471,8 @@ public final class GraphVerifier {
                 "ReturnNode %d must flow into END %d, got %s", id, end, usages);
     }
 
-    /// Every block begin has exactly one control edge to the EndBlockNode
-    /// terminating its block; other usages may only be scheduling edges to
-    /// non-control nodes.
+    /// Every block begin has exactly one control edge to its EndBlockNode.
+    /// The common ordering check puts it at usage slot 0, before scheduling edges.
     private static void verifyBlockEnd(IrGraph graph, int id) {
         final IntList usages = graph.getControl().getUsages(id);
         int blockEnd = -1;
@@ -463,9 +490,9 @@ public final class GraphVerifier {
                 id, blockEnd, name(graph, blockEnd));
     }
 
-    /// All control flow from {@code begin} must terminate at exactly the
-    /// ReturnNode {@code ret}, and no control node may be shared between
-    /// programs.
+    /// Every reachable control node must have a path to the registered return;
+    /// no control node may be shared between programs. Known-true loop
+    /// continuation conditions are invalid, but general termination is not proven.
     private static void verifyProgramFlow(IrGraph graph, int begin, int ret, BitSet visited) {
         final BitSet forward = walk(graph, begin, false);
         final BitSet reachesReturn = walk(graph, ret, true);
@@ -473,7 +500,7 @@ public final class GraphVerifier {
                 "ReturnNode %d is not reachable from program entry %d", ret, begin);
         for (int id = forward.nextSetBit(0); id >= 0; id = forward.nextSetBit(id + 1)) {
             check(reachesReturn.get(id),
-                    "Control node %d (%s) does not eventually flow into ReturnNode %d",
+                    "Control node %d (%s) has no path to ReturnNode %d",
                     id, name(graph, id), ret);
             check(id == ret || graph.getNode(id) != ReturnNode.RET,
                     "Program entry %d reaches another ReturnNode %d besides %d", begin, id, ret);
@@ -481,6 +508,31 @@ public final class GraphVerifier {
                     "Control node %d (%s) is shared between programs", id, name(graph, id));
         }
         visited.or(forward);
+    }
+
+    /// Uses the shared CFG analysis with a fresh result, so verification does
+    /// not depend on whether a caller invalidated the graph's cached analyses.
+    private static void verifyLoopConditions(IrGraph graph, int programIndex) {
+        final var cfg = CFGAccess.build(graph, programIndex, null, CFGAccess.Status.LOOP_BODY);
+        final var headers = cfg.loopHeaderIterator();
+        while (headers.hasNext()) {
+            final var loop = cfg.getLoopFromHeader(headers.nextInt());
+            final BitSet blocks = loop.blocks();
+            for (int block = blocks.nextSetBit(0); block >= 0; block = blocks.nextSetBit(block + 1)) {
+                final int branch = cfg.getBlockEnd(block);
+                if (!(graph.getNode(branch) instanceof IfBranchNode)) continue;
+                final IntList operands = graph.getValue().getOperands(branch);
+                if (operands.size() != 1) continue;
+                final var condition = TypeUtil.getValueType(graph, operands.getInt(0));
+                final IntList successors = cfg.getCFG().getUsages(block);
+                final boolean trueContinues = blocks.get(successors.getInt(0));
+                final boolean falseContinues = blocks.get(successors.getInt(1));
+                if (trueContinues == falseContinues) continue; // Not an exit check for this loop.
+                check(condition != (trueContinues ? BooleanType.TRUE : BooleanType.FALSE),
+                        "Loop continuation condition at IfBranchNode %d must not be BooleanType.TRUE (after accounting for branch polarity)",
+                        branch);
+            }
+        }
     }
 
     /// Walks control-to-control edges from {@code root}, stopping at the

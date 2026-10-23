@@ -6,13 +6,14 @@ import com.ishland.c2me.opts.dfc.common.ir.node.IrNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.constant.IntConstantNode;
 import com.ishland.c2me.opts.dfc.common.ir.phase.scalar.Canonicalizer;
 import com.ishland.c2me.opts.dfc.common.ir.type.mir.IntegerType;
+import com.ishland.c2me.opts.dfc.common.ir.type.util.TypeUtil;
 
 public interface IntAddMulCommonOp extends IntCommonOp {
     int getUnitForOp();
 
     default boolean foldConstant(IrGraph graph, EdgeAccessor edges, int id, int lhs, int rhs, Canonicalizer canonicalizer) {
-        final var lType = (IntegerType) graph.getType(lhs);
-        final var rType = (IntegerType) graph.getType(rhs);
+        final var lType = (IntegerType) TypeUtil.getValueType(graph, lhs);
+        final var rType = (IntegerType) TypeUtil.getValueType(graph, rhs);
         // Do constant folding
         if (rType.isConstant()) {
             if (lType.isConstant()) {
@@ -60,7 +61,7 @@ public interface IntAddMulCommonOp extends IntCommonOp {
 
     // TODO: make it more local by not modifying upstream node's topology structure
     default boolean foldPartialConstant(IrGraph graph, EdgeAccessor edges, int id, int lhs, int rhs) {
-        final var rType = (IntegerType) graph.getType(rhs);
+        final var rType = (IntegerType) TypeUtil.getValueType(graph, rhs);
         final var lNode = graph.getNode(lhs);
         // Now we can only see left spined add
         if (rType.isConstant()) {
@@ -68,7 +69,7 @@ public interface IntAddMulCommonOp extends IntCommonOp {
                 final var lNIns = edges.getOperands(lhs);
                 final int lRhs = lNIns.getInt(2);
                 final int lLhs = lNIns.getInt(1);
-                final var lRType = (IntegerType) graph.getType(lRhs);
+                final var lRType = (IntegerType) TypeUtil.getValueType(graph, lRhs);
                 if (lRType.isConstant()) {
                     // ((x + con1) + con2) becomes (x + (con1 + con2))
                     // which folds into (x + con3)

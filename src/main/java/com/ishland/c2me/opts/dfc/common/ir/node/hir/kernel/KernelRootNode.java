@@ -8,6 +8,7 @@ import com.ishland.c2me.opts.dfc.common.ir.phase.scalar.Canonicalizer;
 import com.ishland.c2me.opts.dfc.common.ir.node.IrNode;
 import com.ishland.c2me.opts.dfc.common.ir.type.FormalType;
 import com.ishland.c2me.opts.dfc.common.ir.type.IrType;
+import com.ishland.c2me.opts.dfc.common.ir.type.util.TypeUtil;
 
 /// Root of a pure HIR value DAG. Memory operand 0 is the owning
 /// {@link KernelNode}; value operand 0 is the kernel's result. START points
@@ -29,7 +30,7 @@ public enum KernelRootNode implements HIRNode {
 
     @Override
     public IrType compute(IrGraph graph, int id, GraphContext ctx) {
-        return graph.getType(IrNode.data(graph, id, 0));
+        return TypeUtil.getValueType(graph, IrNode.data(graph, id, 0));
     }
 
     @Override

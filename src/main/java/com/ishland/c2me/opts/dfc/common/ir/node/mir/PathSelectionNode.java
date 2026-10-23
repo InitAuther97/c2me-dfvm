@@ -16,6 +16,8 @@ public abstract class PathSelectionNode implements MIRNode {
 
     protected abstract EdgeAccessor getEdgeForSelection(IrGraph graph);
 
+    protected abstract IrType getTypeForSelection(IrGraph graph, int input);
+
     protected BranchType getBranchType(IrGraph graph, int id) {
         return (BranchType) graph.getType(graph.getControl().getOperands(id).getInt(0));
     }
@@ -44,8 +46,8 @@ public abstract class PathSelectionNode implements MIRNode {
         final var control = graph.getControl().getOperands(id).getInt(0);
         final var value = getEdgeForSelection(graph).getOperands(id);
         final var branch = (BranchType) graph.getType(control);
-        final var left = graph.getType(value.getInt(0));
-        final var right = graph.getType(value.getInt(1));
+        final var left = getTypeForSelection(graph, value.getInt(0));
+        final var right = getTypeForSelection(graph, value.getInt(1));
         return switch (branch.getBranch()) {
             case 0 -> left.meet(right);
             case 1 -> left;

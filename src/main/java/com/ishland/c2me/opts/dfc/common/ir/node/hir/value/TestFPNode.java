@@ -10,6 +10,7 @@ import com.ishland.c2me.opts.dfc.common.ir.type.IrType;
 import com.ishland.c2me.opts.dfc.common.ir.type.mir.BooleanType;
 import com.ishland.c2me.opts.dfc.common.ir.type.mir.DoubleType;
 import com.ishland.c2me.opts.dfc.common.ir.type.mir.FloatType;
+import com.ishland.c2me.opts.dfc.common.ir.type.util.TypeUtil;
 import com.ishland.flowsched.util.Assertions;
 
 /// Tests a floating point value against lower and upper bounds taken from
@@ -45,9 +46,9 @@ public enum TestFPNode implements HIRNode {
 
     @Override
     public IrType compute(IrGraph graph, int id, GraphContext ctx) {
-        final IrType value = graph.getType(IrNode.data(graph, id, 0));
-        final IrType lower = graph.getType(IrNode.data(graph, id, 1));
-        final IrType upper = graph.getType(IrNode.data(graph, id, 2));
+        final IrType value = TypeUtil.getValueType(graph, IrNode.data(graph, id, 0));
+        final IrType lower = TypeUtil.getValueType(graph, IrNode.data(graph, id, 1));
+        final IrType upper = TypeUtil.getValueType(graph, IrNode.data(graph, id, 2));
         if (!value.isDetermined() || !lower.isDetermined() || !upper.isDetermined()) {
             return BooleanType.TOP;
         }

@@ -10,6 +10,7 @@ import com.ishland.c2me.opts.dfc.common.ir.type.mir.FloatType;
 import com.ishland.c2me.opts.dfc.common.ir.type.IrType;
 import com.ishland.c2me.opts.dfc.common.ir.type.util.DoubleUtil;
 import com.ishland.c2me.opts.dfc.common.ir.type.util.FloatUtil;
+import com.ishland.c2me.opts.dfc.common.ir.type.util.TypeUtil;
 
 public enum MinFPNode implements ValueOpNode, FPBinaryOp {
     MIN_F, MIN_D;
@@ -22,8 +23,8 @@ public enum MinFPNode implements ValueOpNode, FPBinaryOp {
     @Override
     public IrType compute(IrGraph graph, int id, GraphContext ctx) {
         final var operands = graph.getValue().getOperands(id);
-        final var first = graph.getType(operands.getInt(0));
-        final var second = graph.getType(operands.getInt(1));
+        final var first = TypeUtil.getValueType(graph, operands.getInt(0));
+        final var second = TypeUtil.getValueType(graph, operands.getInt(1));
         if (this == MIN_D) {
             return DoubleUtil.min((DoubleType) first, (DoubleType) second);
         } else {

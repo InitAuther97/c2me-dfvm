@@ -94,7 +94,7 @@ public sealed interface CFGAccess {
                 // Sort by begin id to enable quick search
                 // Later we use index to build cfg and trees
                 LongUtil.sortByLow(basicBlocks);
-                endBlock = LongUtil.findByHigh(basicBlocks, end);
+                endBlock = CFGHelper.findEndBlock(basicBlocks, end);
                 Assertions.assertTrue(endBlock != -1, "CFGAccess invariant assertion failed: end block not found");
                 if (max == 0) break;
                 // fallthrough
@@ -109,10 +109,11 @@ public sealed interface CFGAccess {
                 if (max == 1) break;
                 // fallthrough
             case 1:
-                Assertions.assertTrue(LongUtil.findByLow(basicBlocks, begin) == 0, "CFGAccess invariant assertion failed: begin block is not the first block");
+                final int beginBlock = LongUtil.findByLow(basicBlocks, begin);
+                Assertions.assertTrue(beginBlock >= 0, "CFGAccess invariant assertion failed: begin block not found");
                 // It is OK to use -1 because we don't have anything after our end in CFG
-                PostOrderCollector.populatePostOrder(cfg, 0, -1, po);
-                dom = DomTree.createDomTree(cfg, po, 0);
+                PostOrderCollector.populatePostOrder(cfg, beginBlock, -1, po);
+                dom = DomTree.createDomTree(cfg, po, beginBlock);
                 po.clear();
 
                 final var invCfg = EdgeAccessor.reversedImmutable(cfg);
@@ -245,7 +246,7 @@ public sealed interface CFGAccess {
         }
 
         public final int getBlockIdxForEndNode(int nodeIdx) {
-            return LongUtil.findByHigh(basicBlocks, nodeIdx);
+            return CFGHelper.findEndBlock(basicBlocks, nodeIdx);
         }
 
         public LongIterator basicBlockIterator() {

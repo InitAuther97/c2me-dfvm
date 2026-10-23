@@ -8,6 +8,7 @@ import com.ishland.c2me.opts.dfc.common.ir.phase.scalar.Canonicalizer;
 import com.ishland.c2me.opts.dfc.common.ir.type.mir.DoubleType;
 import com.ishland.c2me.opts.dfc.common.ir.type.mir.FloatType;
 import com.ishland.c2me.opts.dfc.common.ir.type.IrType;
+import com.ishland.c2me.opts.dfc.common.ir.type.util.TypeUtil;
 import com.ishland.flowsched.util.Assertions;
 
 public enum RoundFPNode implements ValueOpNode, FPUnaryOp {
@@ -60,7 +61,7 @@ public enum RoundFPNode implements ValueOpNode, FPUnaryOp {
         final var operands = graph.getValue().getOperands(id);
         Assertions.assertTrue(operands.size() == 1, "Too many operands");
         final int operand = operands.getInt(0);
-        final var in = graph.getType(operand);
+        final var in = TypeUtil.getValueType(graph, operand);
         if (!in.isDetermined())
             return initialType();
         if (isFloat) {

@@ -9,6 +9,7 @@ import com.ishland.c2me.opts.dfc.common.ir.type.mir.BooleanType;
 import com.ishland.c2me.opts.dfc.common.ir.type.mir.BranchType;
 import com.ishland.c2me.opts.dfc.common.ir.type.mir.ControlLike;
 import com.ishland.c2me.opts.dfc.common.ir.type.IrType;
+import com.ishland.c2me.opts.dfc.common.ir.type.util.TypeUtil;
 import com.ishland.flowsched.util.Assertions;
 
 /// Ends a block with a conditional branch on its single data operand. Has
@@ -29,7 +30,7 @@ public enum IfBranchNode implements EndBlockNode {
         final int upstream = IrNode.control(graph, id);
         final int cond = IrNode.data(graph, id, 0);
         final var upstreamType = ControlLike.getControl(graph.getType(upstream));
-        final var condType = (BooleanType) graph.getType(cond);
+        final var condType = (BooleanType) TypeUtil.getValueType(graph, cond);
         Assertions.assertTrue(condType.getData() != 0, "Boolean type is not yet determined");
         // If we're dead, we're just dead
         return upstreamType.isAlive() ? BranchType.forIf(condType) : BranchType.TOP;

@@ -8,6 +8,7 @@ import com.ishland.c2me.opts.dfc.common.ir.node.hir.HIRNode;
 import com.ishland.c2me.opts.dfc.common.ir.phase.scalar.Canonicalizer;
 import com.ishland.c2me.opts.dfc.common.ir.type.FormalType;
 import com.ishland.c2me.opts.dfc.common.ir.type.IrType;
+import com.ishland.c2me.opts.dfc.common.ir.type.util.TypeUtil;
 
 /// Invokes the kernel marked as callee by the memory edge from a
 /// {@link KernelNode}, passed as this node's first memory operand.
@@ -39,7 +40,7 @@ public enum KernelInvokeNode implements HIRNode {
     @Override
     public IrType compute(IrGraph graph, int id, GraphContext ctx) {
         final int callee = IrNode.memory(graph, id, 0);
-        return graph.getType(callee);
+        return TypeUtil.getMemoryType(graph, callee);
     }
 
     @Override

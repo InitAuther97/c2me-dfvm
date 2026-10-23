@@ -10,6 +10,7 @@ import com.ishland.c2me.opts.dfc.common.ir.type.mir.FloatType;
 import com.ishland.c2me.opts.dfc.common.ir.type.IrType;
 import com.ishland.c2me.opts.dfc.common.ir.type.util.DoubleUtil;
 import com.ishland.c2me.opts.dfc.common.ir.type.util.FloatUtil;
+import com.ishland.c2me.opts.dfc.common.ir.type.util.TypeUtil;
 
 public enum SqrtFPNode implements ValueOpNode, FPUnaryOp {
     SQRT_F, SQRT_D;
@@ -22,7 +23,7 @@ public enum SqrtFPNode implements ValueOpNode, FPUnaryOp {
     @Override
     public IrType compute(IrGraph graph, int id, GraphContext ctx) {
         final var operands = graph.getValue().getOperands(id);
-        final var input = graph.getType(operands.getInt(0));
+        final var input = TypeUtil.getValueType(graph, operands.getInt(0));
         if (this == SQRT_D) {
             return DoubleUtil.sqrt((DoubleType) input);
         } else {

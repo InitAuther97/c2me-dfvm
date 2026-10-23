@@ -11,6 +11,7 @@ import com.ishland.c2me.opts.dfc.common.ir.phase.scalar.Canonicalizer;
 import com.ishland.c2me.opts.dfc.common.ir.type.IrType;
 import com.ishland.c2me.opts.dfc.common.ir.type.mir.FloatType;
 import com.ishland.c2me.opts.dfc.common.ir.type.util.FloatUtil;
+import com.ishland.c2me.opts.dfc.common.ir.type.util.TypeUtil;
 
 /// Linearly interpolates between two f32 values: value operands are
 /// `[alpha, start, end]` and the result is
@@ -50,9 +51,9 @@ public enum LerpNode implements HIRNode {
 
     @Override
     public IrType compute(IrGraph graph, int id, GraphContext ctx) {
-        final var alpha = (FloatType) graph.getType(IrNode.data(graph, id, 0));
-        final var start = (FloatType) graph.getType(IrNode.data(graph, id, 1));
-        final var end = (FloatType) graph.getType(IrNode.data(graph, id, 2));
+        final var alpha = (FloatType) TypeUtil.getValueType(graph, IrNode.data(graph, id, 0));
+        final var start = (FloatType) TypeUtil.getValueType(graph, IrNode.data(graph, id, 1));
+        final var end = (FloatType) TypeUtil.getValueType(graph, IrNode.data(graph, id, 2));
         return FloatUtil.add(start, FloatUtil.mul(alpha, FloatUtil.sub(end, start)));
     }
 
@@ -62,7 +63,7 @@ public enum LerpNode implements HIRNode {
             return false;
         }
         if (!ctx.isFeatureEnabled(CompileFeature.UNSAFE_MATH)
-                && mayBeOne(graph.getType(IrNode.data(graph, id, 0)))) {
+                && mayBeOne(TypeUtil.getValueType(graph, IrNode.data(graph, id, 0)))) {
             return false;
         }
         graph.replaceNode(id, new NodeState(LERP, graph.get(id).type()));

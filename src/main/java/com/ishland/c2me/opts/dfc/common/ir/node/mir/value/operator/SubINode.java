@@ -10,6 +10,7 @@ import com.ishland.c2me.opts.dfc.common.ir.phase.scalar.Canonicalizer;
 import com.ishland.c2me.opts.dfc.common.ir.type.mir.IntegerType;
 import com.ishland.c2me.opts.dfc.common.ir.type.IrType;
 import com.ishland.c2me.opts.dfc.common.ir.type.util.IntUtil;
+import com.ishland.c2me.opts.dfc.common.ir.type.util.TypeUtil;
 
 public enum SubINode implements ValueOpNode, IntCommonOp {
     SUB_I;
@@ -22,8 +23,8 @@ public enum SubINode implements ValueOpNode, IntCommonOp {
     @Override
     public IrType compute(IrGraph graph, int id, GraphContext ctx) {
         final var operands = graph.getValue().getOperands(id);
-        final var left = (IntegerType) graph.getType(operands.getInt(0));
-        final var right = (IntegerType) graph.getType(operands.getInt(1));
+        final var left = (IntegerType) TypeUtil.getValueType(graph, operands.getInt(0));
+        final var right = (IntegerType) TypeUtil.getValueType(graph, operands.getInt(1));
         return IntUtil.sub(left, right);
     }
 
@@ -32,8 +33,8 @@ public enum SubINode implements ValueOpNode, IntCommonOp {
         final var edges = graph.getValue();
         final var operands = edges.getOperands(id);
         final int lhs = operands.getInt(0), rhs = operands.getInt(1);
-        final var lType = (IntegerType) graph.getType(lhs);
-        final var rType = (IntegerType) graph.getType(rhs);
+        final var lType = (IntegerType) TypeUtil.getValueType(graph, lhs);
+        final var rType = (IntegerType) TypeUtil.getValueType(graph, rhs);
         // Do constant folding
         if (rType.isConstant()) {
             if (lType.isConstant()) {

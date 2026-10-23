@@ -8,7 +8,9 @@ import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.ValueOpNode;
 import com.ishland.c2me.opts.dfc.common.ir.phase.scalar.Canonicalizer;
 import com.ishland.c2me.opts.dfc.common.ir.type.FormalType;
 import com.ishland.c2me.opts.dfc.common.ir.type.IrType;
+import com.ishland.c2me.opts.dfc.common.ir.type.MemoryValueType;
 import com.ishland.c2me.opts.dfc.common.ir.type.mir.MemoryType;
+import com.ishland.c2me.opts.dfc.common.ir.type.util.TypeUtil;
 
 public enum LoadNode implements MemOpNode, ValueOpNode {
 
@@ -16,15 +18,19 @@ public enum LoadNode implements MemOpNode, ValueOpNode {
 
     @Override
     public IrType initialType() {
-        return FormalType.TOP;
+        return MemoryValueType.TOP;
     }
 
     @Override
     public IrType compute(IrGraph graph, int id, GraphContext ctx) {
-        final int mem = IrNode.data(graph, id, 0);
-        final var type = graph.getType(mem);
+        final int mem = IrNode.memory(graph, id, 0);
+        final var type = TypeUtil.getMemoryType(graph, mem);
+        if (type == FormalType.TOP) return MemoryValueType.TOP;
+        if (type == FormalType.BOT) return MemoryValueType.BOT;
         final MemoryType memory = (MemoryType) type;
-        return ctx.getDataType(memory.getAlias());
+        if (memory.equals(MemoryType.TOP)) return MemoryValueType.TOP;
+        if (memory.equals(MemoryType.BOT)) return MemoryValueType.BOT;
+        return new MemoryValueType(memory, ctx.getDataType(memory.getAlias()));
     }
 
     @Override
