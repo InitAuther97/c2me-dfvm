@@ -2,13 +2,15 @@ package com.ishland.c2me.opts.dfc.common.ir.phase.scalar;
 
 import com.ishland.c2me.opts.dfc.common.ir.GraphContext;
 import com.ishland.c2me.opts.dfc.common.ir.LongUtil;
-import com.ishland.c2me.opts.dfc.common.ir.graph.RPOIterator;
+import com.ishland.c2me.opts.dfc.common.ir.graph.EdgeAccessor;
 import com.ishland.c2me.opts.dfc.common.ir.graph.value.GraphUtil;
 import com.ishland.c2me.opts.dfc.common.ir.graph.IrGraph;
 import com.ishland.c2me.opts.dfc.common.ir.phase.HighTierPhase;
 import com.ishland.c2me.opts.dfc.common.ir.phase.MidTierPhase;
 import it.unimi.dsi.fastutil.ints.*;
+import it.unimi.dsi.fastutil.longs.LongArrayList;
 
+import java.util.BitSet;
 import java.util.Objects;
 
 public class GVN extends RunCanonicalizerPhase implements IntHash.Strategy, HighTierPhase, MidTierPhase {
@@ -24,25 +26,71 @@ public class GVN extends RunCanonicalizerPhase implements IntHash.Strategy, High
 
     /**
      * Run Global Value Numbering (GVN) on this graph. <br/>
-     * This phase utilizes a hash map of (incoming edges, node) and runs two
-     * kinds of numbering back and forth until no more node needs to be numbered. <br/>
-     * The graph is iterated in reverse post order: a node is processed after all
-     * of its predecessors. For every node met, try to find a replacement in the map.
-     * If a replacement exists, replace all usages of this node to that node. <br/>
+     * Value and memory edges together form the dependency graph. Nodes are
+     * iterated in reverse post order over both edge kinds, starting from
+     * nodes without operands, so every definition is numbered before its
+     * users. For every node met, try to find a replacement in the map; if a
+     * replacement exists, replace all value and memory usages of this node
+     * with it. Programs are not required: nodes whose {@code isEqual} is
+     * false (e.g. CFG nodes) simply never find a replacement. <br/>
      */
     @Override
     public void run() {
-        final var value = graph.getValue();
-        for (int i = 0; i < graph.countPrograms(); i++) {
-            final long program = graph.getProgramAt(i);
-            final int begin = LongUtil.getLow(program);
-            final int end = LongUtil.getHigh(program);
-            final var rpo = new RPOIterator(value, begin, end);
-            while (rpo.hasNext()) {
-                final int node = rpo.nextInt();
-                if (!number(node)) continue;
-                // Add to canonicalizer for dead code elimination
-                enqueue(node);
+        final IntArrayList postOrder = new IntArrayList();
+        final BitSet visited = new BitSet();
+        final EdgeAccessor value = graph.getValue();
+        final EdgeAccessor memory = graph.getMemory();
+        // Definitions first: start from nodes without value or memory
+        // operands and collect their usages.
+        for (int id = 0; id < graph.nodes().size(); id++) {
+            if (graph.get(id) != null
+                    && value.getOperands(id).isEmpty()
+                    && memory.getOperands(id).isEmpty()) {
+                collectPostOrder(id, visited, postOrder);
+            }
+        }
+        // Covers components without a source, e.g. value cycles through phis.
+        for (int id = 0; id < graph.nodes().size(); id++) {
+            if (graph.get(id) != null && !visited.get(id)) {
+                collectPostOrder(id, visited, postOrder);
+            }
+        }
+        // Reverse post order of a def->use walk visits definitions first.
+        for (int i = postOrder.size() - 1; i >= 0; i--) {
+            final int node = postOrder.getInt(i);
+            if (graph.get(node) == null) continue;
+            if (!number(node)) continue;
+            // Add to canonicalizer for dead code elimination
+            enqueue(node);
+        }
+    }
+
+    /// Collects a post-order over value and memory usages from {@code start}.
+    private void collectPostOrder(int start, BitSet visited, IntArrayList postOrder) {
+        final EdgeAccessor value = graph.getValue();
+        final EdgeAccessor memory = graph.getMemory();
+        final LongArrayList stack = new LongArrayList();
+        stack.push(LongUtil.make(start, 0)); // 0 = enter, 1 = leave
+        while (!stack.isEmpty()) {
+            final long entry = stack.popLong();
+            final int node = LongUtil.getLow(entry);
+            final int phase = LongUtil.getHigh(entry);
+            if (phase == 0) {
+                if (visited.get(node)) continue;
+                visited.set(node);
+                stack.push(LongUtil.make(node, 1));
+                final IntList vUsages = value.getUsages(node);
+                for (int i = vUsages.size() - 1; i >= 0; i--) {
+                    final int usage = vUsages.getInt(i);
+                    if (!visited.get(usage)) stack.push(LongUtil.make(usage, 0));
+                }
+                final IntList mUsages = memory.getUsages(node);
+                for (int i = mUsages.size() - 1; i >= 0; i--) {
+                    final int usage = mUsages.getInt(i);
+                    if (!visited.get(usage)) stack.push(LongUtil.make(usage, 0));
+                }
+            } else {
+                postOrder.add(node);
             }
         }
     }
@@ -72,8 +120,14 @@ public class GVN extends RunCanonicalizerPhase implements IntHash.Strategy, High
             memory.replaceEdge(downstream, node, replacement);
         }
 
+        // Carry over scheduling edges without duplicating those the
+        // replacement already has (e.g. two roots under the same entry).
+        final var replacementScheduling = control.getOperands(replacement);
         for (int j = 0; j < scheduling.size(); j++) {
-            control.appendEdge(scheduling.getInt(j), replacement);
+            final int controlOperand = scheduling.getInt(j);
+            if (!replacementScheduling.contains(controlOperand)) {
+                control.appendEdge(controlOperand, replacement);
+            }
         }
         return true;
     }

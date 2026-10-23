@@ -3,6 +3,7 @@ package com.ishland.c2me.opts.dfc.common.ir.phase.tree;
 import com.ishland.c2me.opts.dfc.common.ir.GraphContext;
 import com.ishland.c2me.opts.dfc.common.ir.graph.EdgeAccessor;
 import com.ishland.c2me.opts.dfc.common.ir.graph.IrGraph;
+import com.ishland.c2me.opts.dfc.common.ir.node.tree.MarkerTreeNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.tree.group.GroupTagTree;
 import com.ishland.c2me.opts.dfc.common.ir.node.tree.mirror.CacheTree;
 import com.ishland.c2me.opts.dfc.common.ir.phase.TreePhase;
@@ -67,14 +68,14 @@ public class CacheEliminationPhase implements TreePhase {
         }
     }
 
-    /// The function operand of a root, i.e. its value operand that is not
-    /// the group tag; -1 if the root has none.
+    /// The function operand of a root, i.e. its value operand that is not a
+    /// marker tag; -1 if the root has none.
     private static int rootFunction(IrGraph graph, int root) {
         final IntList operands = graph.getValue().getOperands(root);
         for (int i = 0; i < operands.size(); i++) {
             final int operand = operands.getInt(i);
             final var state = graph.get(operand);
-            if (state != null && !(state.node() instanceof GroupTagTree)) {
+            if (state != null && !(state.node() instanceof MarkerTreeNode)) {
                 return operand;
             }
         }

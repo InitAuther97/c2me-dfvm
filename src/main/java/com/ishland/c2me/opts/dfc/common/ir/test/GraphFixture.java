@@ -4,7 +4,7 @@ import com.ishland.c2me.opts.dfc.common.ir.GraphContext;
 import com.ishland.c2me.opts.dfc.common.ir.graph.IrGraph;
 import com.ishland.c2me.opts.dfc.common.ir.node.IrNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.FunctionBeginNode;
-import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.FunctionNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.function.FunctionNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.ReturnNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.operator.cond.SelectNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.constant.DoubleConstantNode;

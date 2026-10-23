@@ -1,10 +1,11 @@
-package com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg;
+package com.ishland.c2me.opts.dfc.common.ir.node.mir.value.function;
 
 import com.ishland.c2me.opts.dfc.common.ir.GraphContext;
 import com.ishland.c2me.opts.dfc.common.ir.export.GraphBuilder;
 import com.ishland.c2me.opts.dfc.common.ir.graph.IrGraph;
 import com.ishland.c2me.opts.dfc.common.ir.node.IrNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.MIRNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.FunctionBeginNode;
 import com.ishland.c2me.opts.dfc.common.ir.phase.scalar.Canonicalizer;
 import com.ishland.c2me.opts.dfc.common.ir.type.FormalType;
 import com.ishland.c2me.opts.dfc.common.ir.type.IrType;

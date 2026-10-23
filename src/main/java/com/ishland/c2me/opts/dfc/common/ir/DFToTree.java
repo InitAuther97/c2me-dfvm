@@ -4,6 +4,7 @@ import com.ishland.c2me.opts.dfc.common.ir.graph.IrGraph;
 import com.ishland.c2me.opts.dfc.common.ir.node.tree.RootNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.tree.TreeIRNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.tree.group.GroupTagTree;
+import com.ishland.c2me.opts.dfc.common.ir.node.tree.group.IdentifierTagTree;
 import com.ishland.c2me.opts.dfc.common.ir.node.tree.mirror.BinaryOperationTree;
 import com.ishland.c2me.opts.dfc.common.ir.node.tree.mirror.BlendDensityInputTree;
 import com.ishland.c2me.opts.dfc.common.ir.node.tree.mirror.BlendDensityTree;
@@ -31,6 +32,7 @@ import com.ishland.c2me.opts.dfc.common.ir.node.tree.volume.DensityVolumeNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.tree.volume.FTPTransformationTree;
 import com.ishland.c2me.opts.dfc.common.ir.node.tree.volume.SITransformationTree;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
+import net.minecraft.util.Identifier;
 import net.minecraft.util.math.Direction;
 import net.minecraft.util.math.noise.BlendedNoiseSampler;
 import net.minecraft.world.gen.densityfunction.BinaryOperationDensityFunction;
@@ -58,6 +60,7 @@ import net.minecraft.world.gen.densityfunction.SplineDensityFunction;
 import net.minecraft.world.gen.densityfunction.UnaryOperationDensityFunction;
 
 import java.util.Collection;
+import java.util.Map;
 
 /// Lowers grouped vanilla {@link DensityFunction} trees into a single
 /// tree-stage graph.
@@ -70,15 +73,20 @@ import java.util.Collection;
 /// FindTopSurface tags its density input with an
 /// {@link FTPTransformationTree}.
 ///
+/// Each input root additionally consumes an {@link IdentifierTagTree}
+/// carrying its caller-supplied {@link Identifier}; roots split off at a
+/// volume change later carry no identifier so they can deduplicate.
+///
 /// Nodes are not deduplicated here: every occurrence creates fresh nodes and
 /// GVN merges equivalent ones using the volume operands.
 public class DFToTree {
 
-    /// Each inner collection is one group: its roots consume the same group
-    /// node.
-    public static GraphContext lower(Collection<? extends Collection<? extends DensityFunction>> groups) {
+    /// Each map is one group from input identifier to density function: its
+    /// roots consume the same group node, and each root carries its input's
+    /// identifier tag.
+    public static GraphContext lower(Collection<? extends Map<Identifier, DensityFunction>> groups) {
         final DFToTree lowering = new DFToTree();
-        for (final Collection<? extends DensityFunction> group : groups) {
+        for (final Map<Identifier, DensityFunction> group : groups) {
             lowering.addGroup(group);
         }
         return lowering.context;
@@ -90,19 +98,21 @@ public class DFToTree {
     private DFToTree() {
     }
 
-    /// Creates one group node, one base volume and one root per function;
-    /// each root consumes `[function, group]` as value operands.
-    private void addGroup(Collection<? extends DensityFunction> functions) {
+    /// Creates one group node, one base volume and one root per input; each
+    /// input root consumes `[function, group, identifier]` as value operands.
+    private void addGroup(Map<Identifier, DensityFunction> functions) {
         final int group = graph.addNode(GroupTagTree.TAG);
         final int volume = graph.addNode(DensityVolumeNode.UNKNOWN);
         graph.getMemory().appendEdge(group, volume);
-        for (final DensityFunction function : functions) {
-            final int value = mapFunction(function, volume);
+        for (final Map.Entry<Identifier, DensityFunction> entry : functions.entrySet()) {
+            final int value = mapFunction(entry.getValue(), volume);
+            final int identifier = graph.addNode(new IdentifierTagTree(entry.getKey()));
             final int root = graph.addNode(RootNode.INSTANCE);
             graph.getControl().appendEdge(context.getProgramStart(), root);
             graph.getControl().appendEdge(root, context.getProgramEnd());
             graph.getValue().appendEdge(value, root);
             graph.getValue().appendEdge(group, root);
+            graph.getValue().appendEdge(identifier, root);
         }
     }
 

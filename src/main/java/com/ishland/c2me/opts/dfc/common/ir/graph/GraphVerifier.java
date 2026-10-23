@@ -10,7 +10,7 @@ import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.BranchBeginNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.ControlNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.EndBlockNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.FunctionBeginNode;
-import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.FunctionNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.function.FunctionNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.IfBranchNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.MergeNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.ProgramNode;

@@ -2,7 +2,7 @@ package com.ishland.c2me.opts.dfc.common.ir.phase.cfg;
 
 import com.ishland.c2me.opts.dfc.common.ir.GraphContext;
 import com.ishland.c2me.opts.dfc.common.ir.graph.IrGraph;
-import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.FunctionNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.function.FunctionNode;
 import com.ishland.c2me.opts.dfc.common.ir.phase.MidTierPhase;
 import com.ishland.c2me.opts.dfc.common.ir.phase.scalar.RunCanonicalizerPhase;
 
