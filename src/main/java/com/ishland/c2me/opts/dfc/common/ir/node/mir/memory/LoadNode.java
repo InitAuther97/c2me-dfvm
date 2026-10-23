@@ -36,6 +36,11 @@ public enum LoadNode implements MemOpNode, ValueOpNode {
     @Override
     public boolean optimize(IrGraph graph, int id, Canonicalizer canonicalizer, GraphContext ctx) {
         final int mem = graph.getMemory().getOperands(id).getInt(0);
+        // An unused value makes the load redundant, even if its memory result is used.
+        if (graph.getValue().getUsages(id).isEmpty()) {
+            IrNode.transferDownstream(graph.getMemory(), id, mem, canonicalizer);
+            return true;
+        }
         final var node = graph.getNode(mem);
         // Simple Load-after-Store elimination
         // If memory input is not store, this can't be performed
