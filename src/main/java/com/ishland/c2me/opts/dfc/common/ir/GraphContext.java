@@ -14,8 +14,9 @@ import it.unimi.dsi.fastutil.objects.ReferenceList;
 import java.util.BitSet;
 
 /// Compilation context owning one IR graph. Each context holds exactly one
-/// program begin ({@link ProgramNode#START}) and one program exit
-/// ({@link ProgramNode#END}): over control edges, START fans out to the
+/// graph start ({@link ProgramNode#START}) and one graph exit
+/// ({@link ProgramNode#END}). HIR kernel roots sit between them as structural
+/// anchors for pure value DAGs. In MIR, START fans out to the
 /// {@link FunctionBeginNode} of every executable function, and every
 /// {@link ReturnNode} flows into END. A {@link ConstantPoolNode} also sits
 /// between START and END as the memory source every constant node consumes,

@@ -4,14 +4,13 @@ import com.ishland.c2me.opts.dfc.common.ir.graph.IrGraph;
 import com.ishland.c2me.opts.dfc.common.ir.node.IrNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.hir.kernel.FindFirstNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.hir.kernel.KernelArgumentNode;
-import com.ishland.c2me.opts.dfc.common.ir.node.hir.kernel.KernelBeginNode;
-import com.ishland.c2me.opts.dfc.common.ir.node.hir.kernel.KernelDescriptorNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.hir.kernel.KernelRootNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.hir.kernel.KernelNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.hir.kernel.KernelInvokeNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.hir.kernel.PackedVolumeNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.hir.value.LerpNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.hir.value.TestFPNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.hir.value.TestINode;
-import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.ReturnNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.constant.DoubleConstantNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.constant.FloatConstantNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.constant.IntConstantNode;
@@ -70,8 +69,9 @@ import java.util.Map;
 /// coordinate is derived from its own arguments (the packed volume's
 /// origin), and coordinate-consuming nodes read it structurally from the
 /// argument nodes. Arguments unused by a kernel are left for dead argument
-/// elimination to prune. The root kernel is the first program defined on the
-/// returned context.
+/// elimination to prune. Each kernel is a pure value DAG attached to a
+/// KernelRootNode; the root kernel is the first root under START. Executable
+/// control flow is introduced only during MIR lowering.
 ///
 /// Kernels may also declare custom formats: a predicate kernel used by
 /// {@link FindFirstNode} takes `(x, y, z)` and returns whether the density is
@@ -100,7 +100,7 @@ public class AstToIR {
     private record Coordinates(int x, int y, int z) {
     }
 
-    private record Kernel(int descriptor, int ret) {
+    private record Kernel(int descriptor, int root) {
     }
 
     public static GraphContext lower(DensityFunction function) {
@@ -119,10 +119,10 @@ public class AstToIR {
     /// Builds a standard density kernel with the volume format and returns
     /// the callee's descriptor id.
     private int buildKernel(DensityFunction function) {
-        final Kernel kernel = beginKernel("df/" + this.nextKernelId++ + ": " + function.getClass().getSimpleName());
+        final Kernel kernel = createKernel("df/" + this.nextKernelId++ + ": " + function.getClass().getSimpleName());
         final int[] arguments = new int[ARGUMENT_NAMES.length];
         for (int i = 0; i < arguments.length; i++) {
-            arguments[i] = graph.addNode(new KernelArgumentNode(ARGUMENT_NAMES[i]));
+            arguments[i] = addArgument(kernel, ARGUMENT_NAMES[i]);
         }
         final int value = mapFunction(function, new IdentityHashMap<>(),
                 new Coordinates(arguments[ARG_MIN_X], arguments[ARG_MIN_Y], arguments[ARG_MIN_Z]));
@@ -135,10 +135,10 @@ public class AstToIR {
     /// a caller can feed it captured coordinates through the argument
     /// permutation of a {@link FindFirstNode}.
     private int buildPredicateKernel(DensityFunction function) {
-        final Kernel kernel = beginKernel("predicate/" + this.nextKernelId++ + ": " + function.getClass().getSimpleName());
-        final int x = graph.addNode(new KernelArgumentNode("x"));
-        final int y = graph.addNode(new KernelArgumentNode("y"));
-        final int z = graph.addNode(new KernelArgumentNode("z"));
+        final Kernel kernel = createKernel("predicate/" + this.nextKernelId++ + ": " + function.getClass().getSimpleName());
+        final int x = addArgument(kernel, "x");
+        final int y = addArgument(kernel, "y");
+        final int z = addArgument(kernel, "z");
         final int value = mapFunction(function, new IdentityHashMap<>(), new Coordinates(x, y, z));
         final int predicate = addNode(TestFPNode.MIN_INCLUSIVE_MAX_INCLUSIVE,
                 addNode(FPConvertNode.F2D, value),
@@ -148,20 +148,23 @@ public class AstToIR {
         return kernel.descriptor();
     }
 
-    private Kernel beginKernel(String name) {
-        final int descriptor = graph.addNode(new KernelDescriptorNode(name));
-        final int begin = graph.addNode(KernelBeginNode.BEGIN);
-        final int ret = graph.addNode(ReturnNode.RET);
-        graph.getMemory().appendEdge(descriptor, begin);
-        graph.getControl().appendEdge(context.getProgramStart(), begin);
-        graph.getControl().appendEdge(begin, ret);
-        graph.getControl().appendEdge(ret, context.getProgramEnd());
-        graph.defineProgram(begin, ret);
-        return new Kernel(descriptor, ret);
+    private Kernel createKernel(String name) {
+        final int descriptor = graph.addNode(new KernelNode(name));
+        final int root = graph.addNode(KernelRootNode.ROOT);
+        graph.getMemory().appendEdge(descriptor, root);
+        graph.getControl().appendEdge(context.getProgramStart(), root);
+        graph.getControl().appendEdge(root, context.getProgramEnd());
+        return new Kernel(descriptor, root);
+    }
+
+    private int addArgument(Kernel kernel, String name) {
+        final int argument = graph.addNode(new KernelArgumentNode(name));
+        graph.getMemory().appendEdge(kernel.descriptor(), argument);
+        return argument;
     }
 
     private void finishKernel(Kernel kernel, int value) {
-        graph.getValue().appendEdge(value, kernel.ret());
+        graph.getValue().appendEdge(value, kernel.root());
     }
 
     private int mapFunction(DensityFunction function, Map<DensityFunction, Integer> mapped, Coordinates coordinates) {

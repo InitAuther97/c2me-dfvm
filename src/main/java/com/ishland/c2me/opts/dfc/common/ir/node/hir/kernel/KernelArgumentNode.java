@@ -11,7 +11,10 @@ import com.ishland.c2me.opts.dfc.common.ir.type.mir.IntegerType;
 
 import java.util.Objects;
 
-/// An i32 argument passed into a kernel, identified by its name. Kernels can
+/// An i32 argument passed into a kernel, identified by its name. Its only
+/// memory operand is its owning {@link KernelNode}: an ownership marker,
+/// not a memory read or execution dependency. This also keeps arguments of
+/// different kernels distinct during value numbering. Kernels can
 /// freely declare their own formats; {@code type} documents the assumed
 /// input type callers must adapt to. Properties over arguments should be
 /// made structural, e.g. {@code Mul(16, arg)} expresses an offset that is a

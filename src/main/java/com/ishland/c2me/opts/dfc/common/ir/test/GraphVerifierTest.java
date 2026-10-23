@@ -1,6 +1,7 @@
 package com.ishland.c2me.opts.dfc.common.ir.test;
 
 import com.ishland.c2me.opts.dfc.common.ir.GraphContext;
+import com.ishland.c2me.opts.dfc.common.ir.LongUtil;
 import com.ishland.c2me.opts.dfc.common.ir.graph.GraphVerifier;
 import com.ishland.c2me.opts.dfc.common.ir.graph.IrGraph;
 import com.ishland.c2me.opts.dfc.common.ir.phase.PhaseStage;
@@ -73,7 +74,7 @@ public class GraphVerifierTest {
         final IrGraph graph = ctx.getIrGraph();
         // Pin a value node to a block; scheduling edges carry no requirements
         final int value = graph.addNode(new OpaqueInputNode(BooleanType.BOT));
-        final int entry = graph.getControl().getUsages(ctx.getProgramStart()).getInt(0);
+        final int entry = LongUtil.getLow(graph.getProgramAt(0));
         graph.getControl().appendEdge(entry, value);
         GraphVerifier.verify(ctx, PhaseStage.MIR);
     }
@@ -86,7 +87,7 @@ public class GraphVerifierTest {
         final GraphContext ctx = buildDiamond();
         final IrGraph graph = ctx.getIrGraph();
         final var control = graph.getControl();
-        final int ret = control.getOperands(ctx.getProgramEnd()).getInt(0);
+        final int ret = LongUtil.getHigh(graph.getProgramAt(0));
         final int merge = control.getOperands(ret).getInt(0);
         final int btFalse = control.getOperands(merge).getInt(1);
         final int ifNode = control.getOperands(btFalse).getInt(0);
@@ -122,7 +123,7 @@ public class GraphVerifierTest {
         final GraphContext ctx = buildDiamond();
         final IrGraph graph = ctx.getIrGraph();
         final var control = graph.getControl();
-        final int ret = control.getOperands(ctx.getProgramEnd()).getInt(0);
+        final int ret = LongUtil.getHigh(graph.getProgramAt(0));
         final int merge = control.getOperands(ret).getInt(0);
         final int btFalse = control.getOperands(merge).getInt(1);
         control.removeEdge(btFalse, merge);
@@ -132,7 +133,7 @@ public class GraphVerifierTest {
     public void testReturnNotConnectedToEndFails() {
         final GraphContext ctx = buildStraightLine();
         final IrGraph graph = ctx.getIrGraph();
-        final int ret = graph.getControl().getOperands(ctx.getProgramEnd()).getInt(0);
+        final int ret = LongUtil.getHigh(graph.getProgramAt(0));
         graph.getControl().removeEdge(ret, ctx.getProgramEnd());
         expectViolation("return not flowing into END", () -> GraphVerifier.verify(ctx, PhaseStage.MIR));
     }

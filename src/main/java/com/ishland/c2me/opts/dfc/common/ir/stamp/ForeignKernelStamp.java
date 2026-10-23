@@ -1,7 +1,7 @@
 package com.ishland.c2me.opts.dfc.common.ir.stamp;
 
-import com.ishland.c2me.opts.dfc.common.ir.node.hir.kernel.KernelBeginNode;
-import com.ishland.c2me.opts.dfc.common.ir.node.hir.kernel.KernelDescriptorNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.hir.kernel.KernelRootNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.hir.kernel.KernelNode;
 import com.ishland.c2me.opts.dfc.common.ir.type.IrType;
 import com.ishland.flowsched.util.Assertions;
 
@@ -10,8 +10,8 @@ import java.util.List;
 import java.util.Objects;
 
 /// Metadata of a kernel implemented outside this graph: a foreign kernel has
-/// only a {@link KernelDescriptorNode}, no {@link KernelBeginNode} and no
-/// program. Calls into it are emitted as calls into the foreign target, a
+/// only a {@link KernelNode}, no {@link KernelRootNode} or value DAG.
+/// Calls into it are emitted as calls into the foreign target, a
 /// native C function or a Java method.
 ///
 /// The runtime parameters are supplied by each call in the declared order;

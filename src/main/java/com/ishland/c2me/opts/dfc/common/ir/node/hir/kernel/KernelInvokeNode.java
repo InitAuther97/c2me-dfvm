@@ -10,7 +10,7 @@ import com.ishland.c2me.opts.dfc.common.ir.type.FormalType;
 import com.ishland.c2me.opts.dfc.common.ir.type.IrType;
 
 /// Invokes the kernel marked as callee by the memory edge from a
-/// {@link KernelDescriptorNode}, passed as this node's first memory operand.
+/// {@link KernelNode}, passed as this node's first memory operand.
 /// The work item to sample is described by the {@link PackedVolumeNode}
 /// passed as its second memory operand — typically a degenerate volume whose
 /// origin is the mapped coordinate. The packed volume is lowering metadata

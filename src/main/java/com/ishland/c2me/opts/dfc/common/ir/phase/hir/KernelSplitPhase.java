@@ -30,8 +30,9 @@ import com.ishland.c2me.opts.dfc.common.ir.GraphContext;
 /// is applied to all its call sites, and a caller argument survives only
 /// while some callee still takes it.
 ///
-/// The split is not implemented yet: it needs HIR program construction,
-/// which does not exist. Collapses at the arithmetic level (e.g. an
+/// Batching and dead argument elimination are not implemented yet. HIR
+/// bodies are pure value DAGs attached to kernel roots. Collapses at the
+/// arithmetic level (e.g. an
 /// interpolator interpolating between equal values along an axis whose
 /// coordinate was eliminated) are not argument-level and need ordinary value
 /// simplification instead.

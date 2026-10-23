@@ -8,9 +8,10 @@ import com.ishland.c2me.opts.dfc.common.ir.type.mir.ControlType;
 import com.ishland.c2me.opts.dfc.common.ir.type.IrType;
 
 /// Boundary of the whole graph. A valid graph always contains exactly one
-/// START and one END: START points to at least one {@link FunctionBeginNode},
-/// and every {@link ReturnNode} points to END. Both are part of the control
-/// spine and must never be eliminated (see Canonicalizer).
+/// START and one END. In MIR, START points to executable
+/// {@link FunctionBeginNode}s and every {@link ReturnNode} points to END.
+/// In HIR, roots attach to both boundaries only for structural reachability.
+/// Both boundaries must survive canonicalization.
 public enum ProgramNode implements ControlNode {
     START, END;
 

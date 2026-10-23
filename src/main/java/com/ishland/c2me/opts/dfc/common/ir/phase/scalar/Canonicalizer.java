@@ -6,7 +6,7 @@ import com.ishland.c2me.opts.dfc.common.ir.graph.value.GraphUtil;
 import com.ishland.c2me.opts.dfc.common.ir.graph.IrGraph;
 import com.ishland.c2me.opts.dfc.common.ir.graph.value.NodeState;
 import com.ishland.c2me.opts.dfc.common.ir.node.IrNode;
-import com.ishland.c2me.opts.dfc.common.ir.node.hir.kernel.KernelBeginNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.hir.kernel.KernelRootNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.ConstantPoolNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.FunctionBeginNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.ProgramNode;
@@ -83,12 +83,11 @@ public class Canonicalizer implements Runnable {
         graph.removeNode(id);
     }
 
-    /// The control spine of a graph (program start/end, entries and returns)
-    /// is structural: a valid graph always contains it, so it is never
-    /// subject to dead code elimination even when it has no usages.
-    private static boolean isControlSpine(IrNode node) {
+    /// Graph boundaries, body roots, and MIR entries/returns are structural
+    /// anchors and survive dead code elimination even without usages.
+    private static boolean isStructuralAnchor(IrNode node) {
         return node instanceof ProgramNode || node instanceof FunctionBeginNode
-                || node instanceof KernelBeginNode || node instanceof ReturnNode
+                || node instanceof KernelRootNode || node instanceof ReturnNode
                 || node instanceof RootNode || node instanceof ConstantPoolNode;
     }
 
@@ -109,7 +108,7 @@ public class Canonicalizer implements Runnable {
                 }
                 final var node = state.node();
                 // Fast path: node is already dead
-                if (graph.isOrphan(id) && !isControlSpine(node)) {
+                if (graph.isOrphan(id) && !isStructuralAnchor(node)) {
                     // Dead code elimination
                     deadCodeElim(graph, id, workQueue2);
                     continue;
@@ -127,7 +126,7 @@ public class Canonicalizer implements Runnable {
                     continue;
                 }
                 // Fast path: node is already dead
-                if (graph.isOrphan(id) && !isControlSpine(node)) {
+                if (graph.isOrphan(id) && !isStructuralAnchor(node)) {
                     deadCodeElim(graph, id, workQueue2);
                     continue;
                 }

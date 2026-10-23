@@ -3,8 +3,12 @@ package com.ishland.c2me.opts.dfc.common.ir.graph;
 import com.ishland.c2me.opts.dfc.common.ir.GraphContext;
 import com.ishland.c2me.opts.dfc.common.ir.LongUtil;
 import com.ishland.c2me.opts.dfc.common.ir.node.IrNode;
-import com.ishland.c2me.opts.dfc.common.ir.node.hir.kernel.KernelBeginNode;
-import com.ishland.c2me.opts.dfc.common.ir.node.hir.kernel.KernelDescriptorNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.hir.kernel.KernelArgumentNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.hir.kernel.KernelRootNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.hir.kernel.KernelNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.mir.PathSelectionNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.mir.ProxyNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.mir.memory.MemOpNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.BeginBlockNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.BranchBeginNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.ConstantPoolNode;
@@ -12,11 +16,13 @@ import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.ControlNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.EndBlockNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.FunctionBeginNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.function.FunctionNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.function.FunctionArgumentNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.IfBranchNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.MergeNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.ProgramNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.ReturnNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.tree.RootNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.tree.TreeIRNode;
 import com.ishland.c2me.opts.dfc.common.ir.phase.PhaseStage;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
@@ -33,16 +39,16 @@ import java.util.BitSet;
 /// - {@link PhaseStage#TREE}: START points to one or more {@link RootNode}s;
 ///   every RootNode takes its only control edge from START and is consumed
 ///   by END. No programs are defined and no other control nodes exist.
-/// - {@link PhaseStage#HIR}: START fans out to at least one
-///   {@link KernelBeginNode}, and every kernel flows into exactly one
-///   {@link ReturnNode} collected by END.
-/// - {@link PhaseStage#MIR}: the same program structure with
-///   {@link FunctionBeginNode} entries, additionally validating the block
+/// - {@link PhaseStage#HIR}: START points to body roots, each consuming its
+///   kernel descriptor and one result value. Bodies are pure value DAGs;
+///   argument memory operands mark ownership. No MIR programs are defined.
+/// - {@link PhaseStage#MIR}: executable programs with
+///   {@link FunctionBeginNode} entries and explicit block
 ///   structure ({@link IfBranchNode}, {@link BranchBeginNode},
 ///   {@link MergeNode}, {@link ReturnNode}).
 ///
-/// Value and memory edges, as well as scheduling edges from control nodes
-/// to non-control nodes, carry no requirements and are not checked.
+/// HIR checks value/memory acyclicity and kernel ownership. MIR value and
+/// memory edges and scheduling edges are not structurally checked.
 public final class GraphVerifier {
 
     private GraphVerifier() {
@@ -58,8 +64,8 @@ public final class GraphVerifier {
         verifyConstantPool(graph, start, end, ctx.getConstantPool());
         switch (stage) {
             case TREE -> verifyTree(graph, start, end);
-            case HIR -> verifyPrograms(graph, start, end, true);
-            case MIR -> verifyPrograms(graph, start, end, false);
+            case HIR -> verifyHir(graph, start, end);
+            case MIR -> verifyPrograms(graph, start, end);
         }
     }
 
@@ -72,6 +78,12 @@ public final class GraphVerifier {
                 "Program start %d must not have control inputs", start);
         check(graph.getControl().getUsages(end).isEmpty(),
                 "Program end %d must not have control outputs", end);
+        for (int id = 0; id < graph.nodes().size(); id++) {
+            if (graph.get(id) != null && graph.getNode(id) instanceof ProgramNode boundary) {
+                check(id == (boundary == ProgramNode.START ? start : end),
+                        "Duplicate program boundary node at %d", id);
+            }
+        }
     }
 
     /// The constant pool takes control from START, flows into END and is the
@@ -166,10 +178,142 @@ public final class GraphVerifier {
         }
     }
 
-    private static void verifyPrograms(IrGraph graph, int start, int end, boolean hir) {
+    private static void verifyHir(IrGraph graph, int start, int end) {
         final EdgeAccessor control = graph.getControl();
-        final String entryKind = hir ? "KernelBeginNode" : "FunctionBeginNode";
-        final String stageName = hir ? "HIR" : "MIR";
+        check(graph.countPrograms() == 0,
+                "HIR value DAGs must not define MIR programs, got %d", graph.countPrograms());
+        int roots = 0;
+        for (int id : control.getUsages(start)) {
+            check(graph.getNode(id) instanceof KernelRootNode || graph.getNode(id) instanceof ConstantPoolNode,
+                    "HIR START may only point to kernel roots and the constant pool, got %s at %d", name(graph, id), id);
+            if (graph.getNode(id) instanceof KernelRootNode) roots++;
+        }
+        check(roots > 0, "HIR must contain at least one kernel body root");
+        for (int id : control.getOperands(end)) {
+            check(graph.getNode(id) instanceof KernelRootNode || graph.getNode(id) instanceof ConstantPoolNode,
+                    "HIR END may only collect kernel roots and the constant pool, got %s at %d", name(graph, id), id);
+        }
+
+        for (int id = 0; id < graph.nodes().size(); id++) {
+            if (graph.get(id) == null) continue;
+            final IrNode node = graph.getNode(id);
+            if (node instanceof ProgramNode || node instanceof ConstantPoolNode || node instanceof KernelNode) {
+                check(graph.getValue().getUsages(id).isEmpty(),
+                        "HIR structural node %d (%s) must not be consumed as a value", id, name(graph, id));
+            }
+            if (node instanceof ProgramNode || node instanceof ConstantPoolNode) continue;
+            check(!(node instanceof ControlNode || node instanceof PathSelectionNode
+                            || node instanceof ProxyNode || node instanceof MemOpNode
+                            || node instanceof FunctionNode || node instanceof FunctionArgumentNode
+                            || node instanceof TreeIRNode),
+                    "HIR must not contain explicit control flow, memory operations, or unlowered tree nodes: %s at %d",
+                    name(graph, id), id);
+            if (node instanceof KernelRootNode) {
+                final IntList operands = control.getOperands(id);
+                final IntList usages = control.getUsages(id);
+                check(operands.size() == 1 && operands.getInt(0) == start
+                                && usages.size() == 1 && usages.getInt(0) == end,
+                        "KernelRootNode %d must be structurally attached START -> root -> END", id);
+                final int owner = kernelOwner(graph, id);
+                check(!((KernelNode) graph.getNode(owner)).isForeign(),
+                        "Foreign kernel %d must not own KernelRootNode %d", owner, id);
+                check(graph.getValue().getOperands(id).size() == 1,
+                        "KernelRootNode %d must consume exactly one result value", id);
+                check(graph.getValue().getUsages(id).isEmpty() && graph.getMemory().getUsages(id).isEmpty(),
+                        "KernelRootNode %d is a body anchor, not an operand", id);
+            } else {
+                check(control.getOperands(id).isEmpty() && control.getUsages(id).isEmpty(),
+                        "HIR body node %d (%s) must not have control edges", id, name(graph, id));
+            }
+            if (node instanceof KernelArgumentNode) {
+                final int owner = kernelOwner(graph, id);
+                check(!((KernelNode) graph.getNode(owner)).isForeign(),
+                        "Foreign kernel %d must not own argument %d", owner, id);
+                check(graph.getValue().getOperands(id).isEmpty(),
+                        "KernelArgumentNode %d must not consume value operands", id);
+            } else if (node instanceof KernelNode descriptor) {
+                verifyDescriptor(graph, id, descriptor);
+            }
+        }
+        verifyHirDag(graph);
+        for (int id = 0; id < graph.nodes().size(); id++) {
+            if (graph.get(id) != null && graph.getNode(id) instanceof KernelRootNode) {
+                verifyKernelBody(graph, id, kernelOwner(graph, id));
+            }
+        }
+    }
+
+    /// Roots and arguments consume exactly one descriptor marker.
+    private static int kernelOwner(IrGraph graph, int id) {
+        final IntList memory = graph.getMemory().getOperands(id);
+        check(memory.size() == 1 && graph.getNode(memory.getInt(0)) instanceof KernelNode,
+                "HIR root/argument %d must have exactly one KernelNode memory operand, got %s", id, memory);
+        return memory.getInt(0);
+    }
+
+    private static void verifyDescriptor(IrGraph graph, int id, KernelNode descriptor) {
+        check(graph.getValue().getOperands(id).isEmpty(),
+                "KernelNode %d must not take its body as a value operand", id);
+        int roots = 0;
+        for (int usage : graph.getMemory().getUsages(id)) {
+            if (graph.getNode(usage) instanceof KernelRootNode) roots++;
+        }
+        check(roots == (descriptor.isForeign() ? 0 : 1),
+                "KernelNode %d (%s) must own %d body roots, got %d",
+                id, descriptor.name(), descriptor.isForeign() ? 0 : 1, roots);
+    }
+
+    /// Marker and metadata dependencies must not introduce cycles either.
+    private static void verifyHirDag(IrGraph graph) {
+        final int[] remaining = new int[graph.nodes().size()];
+        final IntArrayList ready = new IntArrayList();
+        for (int id = 0; id < remaining.length; id++) {
+            if (graph.get(id) == null) continue;
+            remaining[id] = graph.getValue().getOperands(id).size() + graph.getMemory().getOperands(id).size();
+            if (remaining[id] == 0) ready.add(id);
+        }
+        int processed = 0;
+        while (!ready.isEmpty()) {
+            final int id = ready.popInt();
+            processed++;
+            for (int usage : graph.getValue().getUsages(id)) {
+                if (--remaining[usage] == 0) ready.add(usage);
+            }
+            for (int usage : graph.getMemory().getUsages(id)) {
+                if (--remaining[usage] == 0) ready.add(usage);
+            }
+        }
+        check(processed == graph.size(), "HIR value and metadata dependencies must form a DAG");
+    }
+
+    /// Follow metadata too, so coordinate expressions in packed volumes are
+    /// checked against the caller's argument ownership. Callee descriptors
+    /// are markers, not edges into other bodies.
+    private static void verifyKernelBody(IrGraph graph, int root, int owner) {
+        final BitSet visited = new BitSet();
+        final IntArrayList stack = new IntArrayList();
+        stack.add(graph.getValue().getOperands(root).getInt(0));
+        while (!stack.isEmpty()) {
+            final int id = stack.popInt();
+            if (visited.get(id)) continue;
+            visited.set(id);
+            final IrNode node = graph.getNode(id);
+            if (node instanceof KernelNode || node instanceof ConstantPoolNode) continue;
+            check(!(node instanceof ProgramNode || node instanceof KernelRootNode),
+                    "HIR body root %d consumes structural node %d as a value or metadata", root, id);
+            if (node instanceof KernelArgumentNode) {
+                check(kernelOwner(graph, id) == owner,
+                        "Kernel body root %d uses argument %d owned by a different kernel", root, id);
+                continue;
+            }
+            stack.addAll(graph.getValue().getOperands(id));
+            stack.addAll(graph.getMemory().getOperands(id));
+        }
+    }
+
+    private static void verifyPrograms(IrGraph graph, int start, int end) {
+        final EdgeAccessor control = graph.getControl();
+        final String entryKind = "FunctionBeginNode";
 
         final IntList entries = control.getUsages(start);
         int programEntries = 0;
@@ -177,9 +321,9 @@ public final class GraphVerifier {
             final int entry = entries.getInt(i);
             final IrNode node = graph.getNode(entry);
             if (node instanceof ConstantPoolNode) continue;
-            check(hir ? node instanceof KernelBeginNode : node instanceof FunctionBeginNode,
-                    "Program start %d may only point to %s entries and the constant pool in the %s stage, got %s at %d",
-                    start, entryKind, stageName, name(graph, entry), entry);
+            check(node instanceof FunctionBeginNode,
+                    "Program start %d may only point to %s entries and the constant pool in MIR, got %s at %d",
+                    start, entryKind, name(graph, entry), entry);
             programEntries++;
         }
         check(programEntries > 0,
@@ -219,8 +363,6 @@ public final class GraphVerifier {
                     // verified by verifyConstantPool
                 }
                 case FunctionBeginNode ignored -> verifyEntry(graph, id, start);
-                case KernelBeginNode ignored -> verifyEntry(graph, id, start);
-                case KernelDescriptorNode descriptor -> verifyDescriptor(graph, id, descriptor);
                 case IfBranchNode ignored -> verifyIfBranch(graph, id);
                 case BranchBeginNode branch -> verifyBranchBegin(graph, id, branch);
                 case MergeNode ignored -> verifyMerge(graph, id);
@@ -255,21 +397,6 @@ public final class GraphVerifier {
         check(operands.size() == 1 && operands.getInt(0) == start,
                 "Program entry %d must have START %d as its only control operand, got %s", id, start, operands);
         verifyBlockEnd(graph, id);
-    }
-
-    /// A foreign kernel has no implementation in the graph, so its descriptor
-    /// must not be linked to a kernel entry.
-    private static void verifyDescriptor(IrGraph graph, int id, KernelDescriptorNode descriptor) {
-        if (!descriptor.isForeign()) {
-            return;
-        }
-        final IntList usages = graph.getMemory().getUsages(id);
-        for (int i = 0; i < usages.size(); i++) {
-            final int usage = usages.getInt(i);
-            check(!(graph.getNode(usage) instanceof KernelBeginNode),
-                    "Foreign kernel descriptor %d (%s) must not be linked to KernelBeginNode %d",
-                    id, descriptor.name(), usage);
-        }
     }
 
     private static void verifyIfBranch(IrGraph graph, int id) {
@@ -381,7 +508,7 @@ public final class GraphVerifier {
     private static String name(IrGraph graph, int id) {
         return switch (graph.getNode(id)) {
             case FunctionBeginNode ignored -> "FunctionBeginNode(%s)".formatted(functionName(graph, id));
-            case KernelBeginNode ignored -> "KernelBeginNode(%s)".formatted(functionName(graph, id));
+            case KernelRootNode ignored -> "KernelRootNode(%s)".formatted(functionName(graph, id));
             case IrNode node -> node.getClass().getSimpleName();
             case null -> "null";
         };
@@ -397,7 +524,7 @@ public final class GraphVerifier {
             if (state != null && state.node() instanceof FunctionNode function) {
                 return function.name();
             }
-            if (state != null && state.node() instanceof KernelDescriptorNode descriptor) {
+            if (state != null && state.node() instanceof KernelNode descriptor) {
                 return descriptor.name();
             }
         }

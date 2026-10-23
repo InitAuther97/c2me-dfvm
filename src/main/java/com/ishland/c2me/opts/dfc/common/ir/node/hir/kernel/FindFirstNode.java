@@ -13,7 +13,7 @@ import java.util.Arrays;
 
 /// Finds the first index of a strided scan for which a predicate kernel
 /// holds. The callee (a boolean-returning kernel) is marked by the memory
-/// edge from its {@link KernelDescriptorNode}, passed as this node's first
+/// edge from its {@link KernelNode}, passed as this node's first
 /// memory operand.
 ///
 /// Value operands: `[lowerBound, upperBound, step, captures...]`. The scan

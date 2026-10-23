@@ -4,8 +4,7 @@ import com.ishland.c2me.opts.dfc.common.ir.LongUtil;
 import com.ishland.c2me.opts.dfc.common.ir.graph.cfg.CFGAccess;
 import com.ishland.c2me.opts.dfc.common.ir.graph.value.NodeState;
 import com.ishland.c2me.opts.dfc.common.ir.node.IrNode;
-import com.ishland.c2me.opts.dfc.common.ir.node.hir.kernel.KernelBeginNode;
-import com.ishland.c2me.opts.dfc.common.ir.node.hir.kernel.KernelDescriptorNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.hir.kernel.KernelNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.FunctionBeginNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.ReturnNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.constant.ConstantNode;
@@ -60,10 +59,11 @@ public class IrGraph {
         this.constantPool = constantPool;
     }
 
+    /// Registers an executable MIR function. HIR value DAGs use kernel roots
+    /// and do not participate in this table.
     public void defineProgram(int begin, int end) {
         Assertions.assertTrue(
-                (getNode(begin) instanceof FunctionBeginNode || getNode(begin) instanceof KernelBeginNode)
-                        && getNode(end) == ReturnNode.RET);
+                getNode(begin) instanceof FunctionBeginNode && getNode(end) == ReturnNode.RET);
         final int idx = LongUtil.findByLow(programs.elements(), begin, 0, programs.size());
         Assertions.assertTrue(idx < 0, "Program starts with %d already exists", begin);
         final int realIdx = ~idx;
@@ -136,7 +136,7 @@ public class IrGraph {
     /// operand, keeping it reachable from the program start.
     private static boolean isPooledConstant(IrNode node) {
         return node instanceof ConstantNode
-                || node instanceof KernelDescriptorNode
+                || node instanceof KernelNode
                 || node instanceof FunctionNode
                 || node instanceof ConstantTree;
     }

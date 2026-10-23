@@ -17,32 +17,30 @@ import java.util.Objects;
 /// return value type (FormalType.TOP by default) used as this node's initial
 /// type, and the metadata of a foreign implementation, if any.
 ///
-/// A body kernel's actual return type is solved from the value fed into the
-/// ReturnNode of the program whose entry is linked from this descriptor
-/// (driven by
+/// A body kernel's actual return type is solved from the value consumed by
+/// its {@link KernelRootNode} (driven by
 /// {@link com.ishland.c2me.opts.dfc.common.ir.phase.hir.HIRCanonicalizationPhase}).
 /// That dependency is a lookup, not an edge, so the descriptor stays a root
-/// node and no loop forms through the kernel body. A {@link KernelBeginNode}
-/// takes a memory edge from its descriptor to mark the function it is the
-/// control flow source of, and a {@link KernelInvokeNode} takes a memory edge
-/// from it to mark its callee.
+/// node and no loop forms through the kernel body. Roots and arguments take
+/// memory edges from this descriptor purely as ownership markers. Invocations
+/// take a memory edge from it to mark their callee.
 ///
 /// A foreign kernel (non-null {@code foreign}) has no implementation in the
-/// graph: it owns no {@link KernelBeginNode} and no program, and its declared
+/// graph: it owns no {@link KernelRootNode}, and its declared
 /// return type is final. The metadata describes its runtime parameters, its
 /// compile-time constants and how the two are arranged into the foreign
 /// target's parameter order.
-public record KernelDescriptorNode(
+public record KernelNode(
         String name,
         IrType returnType,
         @Nullable ForeignKernelStamp foreign
 ) implements HIRNode {
 
-    public KernelDescriptorNode(String name, IrType returnType) {
+    public KernelNode(String name, IrType returnType) {
         this(name, returnType, null);
     }
 
-    public KernelDescriptorNode(String name) {
+    public KernelNode(String name) {
         this(name, FormalType.TOP, null);
     }
 
@@ -65,24 +63,22 @@ public record KernelDescriptorNode(
             // No body to solve from: the declared return type is final
             return returnType;
         }
-        final int begin = findBegin(graph, id);
-        if (begin == -1) {
-            return null; // not linked to a function entry yet
+        final int root = findRoot(graph, id);
+        if (root == -1) {
+            return null; // body not attached yet
         }
-        // The program must be defined once its entry is linked
-        final int ret = graph.getProgramEnd(begin);
-        final var returned = graph.getValue().getOperands(ret);
+        final var returned = graph.getValue().getOperands(root);
         if (returned.isEmpty()) {
-            return null; // the function returns no value
+            return null; // body is still being constructed
         }
         return graph.getType(returned.getInt(0));
     }
 
-    private static int findBegin(IrGraph graph, int id) {
+    private static int findRoot(IrGraph graph, int id) {
         final var usages = graph.getMemory().getUsages(id);
         for (int i = 0; i < usages.size(); i++) {
             final int usage = usages.getInt(i);
-            if (graph.getNode(usage) instanceof KernelBeginNode) {
+            if (graph.getNode(usage) instanceof KernelRootNode) {
                 return usage;
             }
         }
@@ -96,7 +92,7 @@ public record KernelDescriptorNode(
 
     @Override
     public boolean isEqual(IrNode that) {
-        return that instanceof KernelDescriptorNode(String n, IrType t, ForeignKernelStamp f)
+        return that instanceof KernelNode(String n, IrType t, ForeignKernelStamp f)
                 && Objects.equals(name, n)
                 && Objects.equals(returnType, t)
                 && Objects.equals(foreign, f);
