@@ -14,6 +14,8 @@ import com.ishland.c2me.opts.dfc.common.ir.type.IrType;
 /// always reaches exactly one ReturnNode) and points to {@link ProgramNode#END}.
 /// Part of the control spine: a ReturnNode must never be eliminated
 /// (see Canonicalizer).
+/// Carries at most one value operand and at most one memory result for each
+/// memory input alias declared by the function. Memory results use memory edges.
 public enum ReturnNode implements EndBlockNode {
 
     RET;

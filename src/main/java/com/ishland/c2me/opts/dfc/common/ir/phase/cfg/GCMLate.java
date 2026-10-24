@@ -5,10 +5,14 @@ import com.ishland.c2me.opts.dfc.common.ir.LongUtil;
 import com.ishland.c2me.opts.dfc.common.ir.graph.EdgeAccessor;
 import com.ishland.c2me.opts.dfc.common.ir.graph.IrGraph;
 import com.ishland.c2me.opts.dfc.common.ir.graph.cfg.CFGAccess;
+import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.function.FunctionArgumentNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.function.FunctionNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.MergeNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.ReturnNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.memory.MemPhiNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.branch.PhiNode;
+import com.ishland.c2me.opts.dfc.common.ir.type.mir.MemoryType;
+import com.ishland.c2me.opts.dfc.common.ir.type.util.TypeUtil;
 import com.ishland.flowsched.util.Assertions;
 import it.unimi.dsi.fastutil.ints.*;
 import it.unimi.dsi.fastutil.objects.ReferenceArrayList;
@@ -65,7 +69,7 @@ public class GCMLate implements SchedulePhase {
 
         @Override
         public void leave(int node) {
-            final var bitset = byDepth.get(depth--);
+            final var bitset = byDepth.get(--depth);
             availableNodes.andNot(bitset);
             final var ctrl = context.getIrGraph().getControl();
             final int begin = cfg.getBlockBegin(node);
@@ -80,13 +84,56 @@ public class GCMLate implements SchedulePhase {
     /// Assign all nodes to its latest used location.
     /// Phi nodes are assigned to its respective Merge node.
     /// Input of Phi nodes are assigned to its respective branch begin node.
+    /// Returns have zero or one value result and at most one memory result per
+    /// memory input alias declared by the corresponding function.
     @Override
     public void run() {
         final var graph = context.getIrGraph();
         for (int i = 0; i < graph.countPrograms(); i++) {
+            final long program = graph.getProgramAt(i);
+            verifyReturnOperands(graph, LongUtil.getLow(program), LongUtil.getHigh(program));
+        }
+        for (int i = 0; i < graph.countPrograms(); i++) {
             final var cfg = graph.getOrComputeCFGAt(i, CFGAccess.Status.DOMINATOR);
             final var visitor = new ScopeBoundScheduler(context, cfg);
             cfg.getDomTree().walk(visitor);
+        }
+    }
+
+    private static void verifyReturnOperands(IrGraph graph, int entry, int ret) {
+        final var values = graph.getValue().getOperands(ret);
+        Assertions.assertTrue(values.size() <= 1,
+                "ReturnNode %d must have at most one return value, got %s", ret, values);
+        final var memory = graph.getMemory();
+        final var memories = memory.getOperands(ret);
+        if (memories.isEmpty()) return;
+
+        final var entryMemory = memory.getOperands(entry);
+        Assertions.assertTrue(!entryMemory.isEmpty()
+                        && graph.getNode(entryMemory.getInt(0)) instanceof FunctionNode,
+                "Function entry %d must identify its FunctionNode through memory operand 0", entry);
+        final int descriptor = entryMemory.getInt(0);
+        final IntSet inputAliases = new IntOpenHashSet();
+        for (int argument : memory.getUsages(descriptor)) {
+            if (!(graph.getNode(argument) instanceof FunctionArgumentNode)) continue;
+            if (TypeUtil.getMemoryType(graph, argument) instanceof MemoryType type) {
+                Assertions.assertTrue(type.getAlias() >= 0,
+                        "Memory input argument %d must have a concrete alias", argument);
+                inputAliases.add(type.getAlias());
+            }
+        }
+
+        final IntSet returnedAliases = new IntOpenHashSet();
+        for (int returned : memories) {
+            final var type = TypeUtil.getMemoryType(graph, returned);
+            Assertions.assertTrue(type instanceof MemoryType && ((MemoryType) type).getAlias() >= 0,
+                    "ReturnNode %d memory operand %d must have a concrete memory alias", ret, returned);
+            final int alias = ((MemoryType) type).getAlias();
+            Assertions.assertTrue(inputAliases.contains(alias),
+                    "ReturnNode %d memory alias %d must correspond to a memory input argument of function %d",
+                    ret, alias, descriptor);
+            Assertions.assertTrue(returnedAliases.add(alias),
+                    "ReturnNode %d must have at most one memory return for input alias %d", ret, alias);
         }
     }
 
@@ -129,8 +176,9 @@ public class GCMLate implements SchedulePhase {
     private void schedLateOnReturn(IrGraph graph, BitSet scheduling, int ebbIdx) {
         final var values = graph.getValue().getOperands(ebbIdx);
         final var memories = graph.getMemory().getOperands(ebbIdx);
-        Assertions.assertTrue(values.size() == 1, "Should have only one return value");
-        schedLateIterative(graph, scheduling, values.getInt(0));
+        if (!values.isEmpty()) {
+            schedLateIterative(graph, scheduling, values.getInt(0));
+        }
         for (int i = 0; i < memories.size(); i++) {
             schedLateIterative(graph, scheduling, memories.getInt(i));
         }

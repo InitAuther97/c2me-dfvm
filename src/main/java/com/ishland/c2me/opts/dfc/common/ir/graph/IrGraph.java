@@ -135,7 +135,7 @@ public class IrGraph {
 
     /// Whether {@code node} must consume the constant pool through a memory
     /// operand, keeping it reachable from the program start.
-    private static boolean isPooledConstant(IrNode node) {
+    static boolean isPooledConstant(IrNode node) {
         return node instanceof ConstantNode
                 || node instanceof KernelNode
                 || node instanceof FunctionNode

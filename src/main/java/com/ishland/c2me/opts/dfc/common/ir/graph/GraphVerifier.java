@@ -37,7 +37,8 @@ import java.util.BitSet;
 ///
 /// All stages share the boundary rules: the graph holds exactly one
 /// {@link ProgramNode#START} and one {@link ProgramNode#END}, START has no
-/// control inputs and END has no control outputs.
+/// control inputs and END has no control outputs. Every pooled constant takes
+/// memory operand 0 from the graph's constant pool, exactly once.
 ///
 /// - {@link PhaseStage#TREE}: START points to one or more {@link RootNode}s;
 ///   every RootNode takes its only control edge from START and is consumed
@@ -133,9 +134,20 @@ public final class GraphVerifier {
                 "ConstantPoolNode %d must flow into END %d, got %s", pool, end, usages);
         int pools = 0;
         for (int id = 0; id < graph.nodes().size(); id++) {
-            if (graph.get(id) != null && graph.getNode(id) instanceof ConstantPoolNode) {
+            if (graph.get(id) == null) continue;
+            final IrNode node = graph.getNode(id);
+            if (node instanceof ConstantPoolNode) {
                 check(id == pool, "Duplicate ConstantPoolNode at %d", id);
                 pools++;
+            }
+            if (IrGraph.isPooledConstant(node)) {
+                final IntList memory = graph.getMemory().getOperands(id);
+                check(!memory.isEmpty() && memory.getInt(0) == pool,
+                        "Pooled constant %d (%s) must have ConstantPoolNode %d as memory operand 0, got %s",
+                        id, name(graph, id), pool, memory);
+                check(memory.lastIndexOf(pool) == 0,
+                        "Pooled constant %d (%s) must consume ConstantPoolNode %d exactly once, got %s",
+                        id, name(graph, id), pool, memory);
             }
         }
         check(pools == 1, "Graph must contain exactly one ConstantPoolNode, got %d", pools);
