@@ -4,6 +4,11 @@ import com.ishland.c2me.opts.dfc.common.ir.GraphContext;
 import com.ishland.c2me.opts.dfc.common.ir.LongUtil;
 import com.ishland.c2me.opts.dfc.common.ir.graph.GraphVerifier;
 import com.ishland.c2me.opts.dfc.common.ir.graph.IrGraph;
+import com.ishland.c2me.opts.dfc.common.ir.node.hir.HIRNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.hir.kernel.CoordinateNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.hir.kernel.KernelNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.hir.kernel.KernelRootNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.hir.value.TestINode;
 import com.ishland.c2me.opts.dfc.common.ir.phase.PhaseStage;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.BeginBlockNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.BranchBeginNode;
@@ -14,10 +19,12 @@ import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.MergeNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.mir.cfg.ReturnNode;
 import com.ishland.c2me.opts.dfc.common.ir.test.framework.Assert;
 import com.ishland.c2me.opts.dfc.common.ir.type.mir.BooleanType;
+import com.ishland.c2me.opts.dfc.common.ir.type.mir.IntegerType;
 
 /// Verifies {@link GraphVerifier}: a straight-line program and an if/else
 /// diamond pass, while broken control spines (missing edges, swapped branch
-/// order, programs not flowing into a single return) are rejected.
+/// order, programs not flowing into a single return) and HIR nodes in MIR
+/// are rejected. Shared scalar operations remain valid in MIR.
 @SuppressWarnings("unused")
 public class GraphVerifierTest {
 
@@ -72,6 +79,39 @@ public class GraphVerifierTest {
 
     public void testDiamondPasses() {
         GraphVerifier.verify(buildDiamond(), PhaseStage.MIR);
+    }
+
+    public void testSharedScalarNodesPassInMir() {
+        final GraphFixture fixture = new GraphFixture();
+        final int value = fixture.iadd(fixture.input(IntegerType.BOT), fixture.intConst(1));
+        fixture.keepAlive(value);
+        GraphVerifier.verify(fixture.context(), PhaseStage.MIR);
+    }
+
+    public void testHirValueNodeFailsInMir() {
+        final GraphFixture fixture = new GraphFixture();
+        final int value = fixture.node(TestINode.MIN_INCLUSIVE_MAX_EXCLUSIVE,
+                fixture.input(IntegerType.BOT), fixture.intConst(0), fixture.intConst(10));
+        fixture.keepAlive(value);
+        expectViolation("HIR value returned from MIR",
+                () -> GraphVerifier.verify(fixture.context(), PhaseStage.MIR),
+                "MIR graph must not contain HIR node TestINode at " + value);
+    }
+
+    public void testUnusedHirNodesFailInMir() {
+        final HIRNode[] nodes = {
+                new KernelNode("unused"),
+                KernelRootNode.ROOT,
+                new CoordinateNode(0, 0, 0)
+        };
+        for (HIRNode node : nodes) {
+            final GraphContext ctx = buildStraightLine();
+            GraphVerifier.verify(ctx, PhaseStage.MIR);
+            ctx.getIrGraph().addNode(node);
+            expectViolation("unused " + node.getClass().getSimpleName() + " in MIR",
+                    () -> GraphVerifier.verify(ctx, PhaseStage.MIR),
+                    "MIR graph must not contain HIR node", node.getClass().getSimpleName());
+        }
     }
 
     public void testSchedulingEdgesFollowControlSuccessors() {

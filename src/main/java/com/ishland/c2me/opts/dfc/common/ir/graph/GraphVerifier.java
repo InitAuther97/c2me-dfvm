@@ -4,6 +4,7 @@ import com.ishland.c2me.opts.dfc.common.ir.GraphContext;
 import com.ishland.c2me.opts.dfc.common.ir.LongUtil;
 import com.ishland.c2me.opts.dfc.common.ir.graph.cfg.CFGAccess;
 import com.ishland.c2me.opts.dfc.common.ir.node.IrNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.hir.HIRNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.hir.kernel.KernelArgumentNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.hir.kernel.KernelRootNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.hir.kernel.KernelNode;
@@ -45,11 +46,12 @@ import java.util.BitSet;
 ///   by END. No programs are defined and no other control nodes exist.
 /// - {@link PhaseStage#HIR}: START points to body roots, each consuming its
 ///   kernel descriptor and one result value. Bodies are pure value DAGs;
-///   argument memory operands mark ownership. No MIR programs are defined.
+///   argument memory operands mark ownership. No MIR programs are defined,
+///   and no {@link TreeIRNode}s may remain.
 /// - {@link PhaseStage#MIR}: executable programs with
 ///   {@link FunctionBeginNode} entries and explicit block
 ///   structure ({@link IfBranchNode}, {@link BranchBeginNode},
-///   {@link MergeNode}, {@link ReturnNode}).
+///   {@link MergeNode}, {@link ReturnNode}). No {@link HIRNode}s may remain.
 ///
 /// HIR checks value/memory acyclicity and kernel ownership. Control-flow
 /// successors must precede scheduling usages. MIR value/memory operand types
@@ -232,6 +234,8 @@ public final class GraphVerifier {
         for (int id = 0; id < graph.nodes().size(); id++) {
             if (graph.get(id) == null) continue;
             final IrNode node = graph.getNode(id);
+            check(!(node instanceof TreeIRNode),
+                    "HIR graph must not contain tree node %s at %d", name(graph, id), id);
             if (node instanceof ProgramNode || node instanceof ConstantPoolNode || node instanceof KernelNode) {
                 check(graph.getValue().getUsages(id).isEmpty(),
                         "HIR structural node %d (%s) must not be consumed as a value", id, name(graph, id));
@@ -239,9 +243,8 @@ public final class GraphVerifier {
             if (node instanceof ProgramNode || node instanceof ConstantPoolNode) continue;
             check(!(node instanceof ControlNode || node instanceof PathSelectionNode
                             || node instanceof ProxyNode || node instanceof MemOpNode
-                            || node instanceof FunctionNode || node instanceof FunctionArgumentNode
-                            || node instanceof TreeIRNode),
-                    "HIR must not contain explicit control flow, memory operations, or unlowered tree nodes: %s at %d",
+                            || node instanceof FunctionNode || node instanceof FunctionArgumentNode),
+                    "HIR must not contain explicit control flow or memory operations: %s at %d",
                     name(graph, id), id);
             if (node instanceof KernelRootNode) {
                 final IntList operands = control.getOperands(id);
@@ -391,7 +394,10 @@ public final class GraphVerifier {
         // Per-node structural rules
         for (int id = 0; id < graph.nodes().size(); id++) {
             if (graph.get(id) == null) continue;
-            switch (graph.getNode(id)) {
+            final IrNode node = graph.getNode(id);
+            check(!(node instanceof HIRNode),
+                    "MIR graph must not contain HIR node %s at %d", name(graph, id), id);
+            switch (node) {
                 case ProgramNode boundary -> check((id == start) == (boundary == ProgramNode.START),
                         "Duplicate program boundary node at %d", id);
                 case ConstantPoolNode ignored -> {
