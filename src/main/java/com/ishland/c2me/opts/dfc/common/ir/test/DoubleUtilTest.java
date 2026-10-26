@@ -14,8 +14,8 @@ public class DoubleUtilTest {
                 DoubleUtil.add(DoubleType.constant(1.5), DoubleType.constant(2.25)), "add constants");
     }
 
-    public void testAddOverflowWidensToAll() {
-        Assert.assertSame(DoubleType.ALL,
+    public void testAddOverflowRetainsInfinity() {
+        Assert.assertEquals(DoubleType.constant(Double.POSITIVE_INFINITY),
                 DoubleUtil.add(DoubleType.constant(Double.MAX_VALUE), DoubleType.constant(Double.MAX_VALUE)),
                 "add overflow");
     }
@@ -64,13 +64,14 @@ public class DoubleUtilTest {
     }
 
     public void testTopDelaysEvaluation() {
+        final DoubleType top = DoubleType.range(Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY);
         final DoubleType determined = DoubleType.range(1.0, 2.0);
-        Assert.assertSame(DoubleType.TOP, DoubleUtil.add(DoubleType.TOP, determined), "add top");
-        Assert.assertSame(DoubleType.TOP, DoubleUtil.sub(determined, DoubleType.TOP), "sub top");
-        Assert.assertSame(DoubleType.TOP, DoubleUtil.mul(DoubleType.TOP, determined), "mul top");
-        Assert.assertSame(DoubleType.TOP, DoubleUtil.div(determined, DoubleType.TOP), "div top");
-        Assert.assertSame(DoubleType.TOP, DoubleUtil.sqrt(DoubleType.TOP), "sqrt top");
-        Assert.assertSame(DoubleType.TOP, DoubleUtil.min(DoubleType.TOP, determined), "min top");
-        Assert.assertSame(DoubleType.TOP, DoubleUtil.max(determined, DoubleType.TOP), "max top");
+        Assert.assertSame(DoubleType.TOP, DoubleUtil.add(top, determined), "add top");
+        Assert.assertSame(DoubleType.TOP, DoubleUtil.sub(determined, top), "sub top");
+        Assert.assertSame(DoubleType.TOP, DoubleUtil.mul(top, determined), "mul top");
+        Assert.assertSame(DoubleType.TOP, DoubleUtil.div(determined, top), "div top");
+        Assert.assertSame(DoubleType.TOP, DoubleUtil.sqrt(top), "sqrt top");
+        Assert.assertSame(DoubleType.TOP, DoubleUtil.min(top, determined), "min top");
+        Assert.assertSame(DoubleType.TOP, DoubleUtil.max(determined, top), "max top");
     }
 }

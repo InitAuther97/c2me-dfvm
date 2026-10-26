@@ -50,7 +50,7 @@ public class DoubleUtil {
     }
 
     private static DoubleType of(double min, double max) {
-        if (!(min <= max) || Double.isInfinite(min) || Double.isInfinite(max)) return DoubleType.ALL;
+        if (!(min <= max)) return DoubleType.ALL;
         return DoubleType.range(min, max);
     }
 

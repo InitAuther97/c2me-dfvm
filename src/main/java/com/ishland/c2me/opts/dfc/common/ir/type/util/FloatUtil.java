@@ -50,7 +50,7 @@ public class FloatUtil {
     }
 
     private static FloatType of(float min, float max) {
-        if (!(min <= max) || Float.isInfinite(min) || Float.isInfinite(max)) return FloatType.ALL;
+        if (!(min <= max)) return FloatType.ALL;
         return FloatType.range(min, max);
     }
 

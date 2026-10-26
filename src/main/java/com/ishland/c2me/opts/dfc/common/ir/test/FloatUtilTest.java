@@ -12,8 +12,8 @@ public class FloatUtilTest {
                 FloatUtil.add(FloatType.range(1.0f, 5.0f), FloatType.range(3.0f, 7.0f)), "add");
     }
 
-    public void testAddOverflowWidensToAll() {
-        Assert.assertSame(FloatType.ALL,
+    public void testAddOverflowRetainsInfinity() {
+        Assert.assertEquals(FloatType.constant(Float.POSITIVE_INFINITY),
                 FloatUtil.add(FloatType.constant(Float.MAX_VALUE), FloatType.constant(Float.MAX_VALUE)),
                 "add overflow");
     }
@@ -50,13 +50,14 @@ public class FloatUtilTest {
     }
 
     public void testTopDelaysEvaluation() {
+        final FloatType top = FloatType.range(Float.POSITIVE_INFINITY, Float.NEGATIVE_INFINITY);
         final FloatType determined = FloatType.range(1.0f, 2.0f);
-        Assert.assertSame(FloatType.TOP, FloatUtil.add(FloatType.TOP, determined), "add top");
-        Assert.assertSame(FloatType.TOP, FloatUtil.sub(determined, FloatType.TOP), "sub top");
-        Assert.assertSame(FloatType.TOP, FloatUtil.mul(FloatType.TOP, determined), "mul top");
-        Assert.assertSame(FloatType.TOP, FloatUtil.div(determined, FloatType.TOP), "div top");
-        Assert.assertSame(FloatType.TOP, FloatUtil.sqrt(FloatType.TOP), "sqrt top");
-        Assert.assertSame(FloatType.TOP, FloatUtil.min(FloatType.TOP, determined), "min top");
-        Assert.assertSame(FloatType.TOP, FloatUtil.max(determined, FloatType.TOP), "max top");
+        Assert.assertSame(FloatType.TOP, FloatUtil.add(top, determined), "add top");
+        Assert.assertSame(FloatType.TOP, FloatUtil.sub(determined, top), "sub top");
+        Assert.assertSame(FloatType.TOP, FloatUtil.mul(top, determined), "mul top");
+        Assert.assertSame(FloatType.TOP, FloatUtil.div(determined, top), "div top");
+        Assert.assertSame(FloatType.TOP, FloatUtil.sqrt(top), "sqrt top");
+        Assert.assertSame(FloatType.TOP, FloatUtil.min(top, determined), "min top");
+        Assert.assertSame(FloatType.TOP, FloatUtil.max(determined, top), "max top");
     }
 }

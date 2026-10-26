@@ -27,12 +27,13 @@ public class FloatType extends NumericType {
     }
 
     public static FloatType constant(float value) {
-        Assertions.assertTrue(Float.isFinite(value));
+        Assertions.assertTrue(!Float.isNaN(value));
         return new FloatType(value, value);
     }
 
+    /// Bounds may be infinite or reversed for lattice duals; NaN is invalid.
     public static FloatType range(float min, float max) {
-        Assertions.assertTrue(Float.isFinite(min) && Float.isFinite(max) && min <= max);
+        Assertions.assertTrue(!Float.isNaN(min) && !Float.isNaN(max));
         return new FloatType(min, max);
     }
 

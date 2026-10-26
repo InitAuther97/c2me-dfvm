@@ -27,12 +27,13 @@ public class DoubleType extends NumericType {
     }
 
     public static DoubleType constant(double value) {
-        Assertions.assertTrue(Double.isFinite(value));
+        Assertions.assertTrue(!Double.isNaN(value));
         return new DoubleType(value, value);
     }
 
+    /// Bounds may be infinite or reversed for lattice duals; NaN is invalid.
     public static DoubleType range(double min, double max) {
-        Assertions.assertTrue(Double.isFinite(min) && Double.isFinite(max) && min <= max);
+        Assertions.assertTrue(!Double.isNaN(min) && !Double.isNaN(max));
         return new DoubleType(min, max);
     }
 
