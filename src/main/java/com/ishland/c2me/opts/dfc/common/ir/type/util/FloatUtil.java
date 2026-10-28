@@ -49,6 +49,57 @@ public class FloatUtil {
         return of(Math.max(first.min(), second.min()), Math.max(first.max(), second.max()));
     }
 
+    /// Mirrors vanilla Interval.lerp's numeric bounds, with NaI mapped to ALL.
+    /// Its zero-product rules are for range inference, not runtime evaluation.
+    public static FloatType lerp(FloatType alpha, FloatType start, FloatType end) {
+        if (!alpha.isDetermined() || !start.isDetermined() || !end.isDetermined()) return FloatType.TOP;
+        float min = Float.POSITIVE_INFINITY;
+        float max = Float.NEGATIVE_INFINITY;
+        for (int i = 0; i < 4; i++) {
+            final float first = (i & 1) == 0 ? start.min() : start.max();
+            final float second = (i & 2) == 0 ? end.min() : end.max();
+            final FloatType bounds = lerpBounds(alpha, first, second);
+            // Vanilla's union ignores NaI corners. Only an entirely NaI result
+            // widens to ALL, since FloatType has no NaI representation.
+            if (bounds != null) {
+                min = Math.min(min, bounds.min());
+                max = Math.max(max, bounds.max());
+            }
+        }
+        return of(min, max);
+    }
+
+    /// Returns null for a corner interval that vanilla represents as NaI.
+    private static FloatType lerpBounds(FloatType alpha, float start, float end) {
+        final boolean finite = Float.isFinite(start) && Float.isFinite(end);
+        if (!finite && start == end) return FloatType.constant(start);
+        final float first = finite ? lerpFinite(alpha.min(), start, end) : lerpInfinite(alpha.min(), start, end);
+        final float last = finite ? lerpFinite(alpha.max(), start, end) : lerpInfinite(alpha.max(), start, end);
+        // Finite endpoints use Interval.containing, which ignores a single NaN;
+        // infinite endpoints reject the pair if either alpha endpoint gives NaN.
+        if (!finite && (Float.isNaN(first) || Float.isNaN(last))) return null;
+        if (Float.isNaN(first)) return Float.isNaN(last) ? null : FloatType.constant(last);
+        if (Float.isNaN(last)) return FloatType.constant(first);
+        return FloatType.range(Math.min(first, last), Math.max(first, last));
+    }
+
+    private static float lerpFinite(float alpha, float start, float end) {
+        return start + lerpProduct(alpha, end - start);
+    }
+
+    private static float lerpInfinite(float alpha, float start, float end) {
+        final float first = lerpProduct(1.0f - alpha, start);
+        final float second = lerpProduct(alpha, end);
+        if (!Float.isInfinite(first) || !Float.isInfinite(second)) return first + second;
+        if (alpha <= 0.0f) return end > start ? Float.NEGATIVE_INFINITY : Float.POSITIVE_INFINITY;
+        if (alpha >= 1.0f) return end > start ? Float.POSITIVE_INFINITY : Float.NEGATIVE_INFINITY;
+        return Float.NaN;
+    }
+
+    private static float lerpProduct(float first, float second) {
+        return first != 0.0f && second != 0.0f ? first * second : 0.0f;
+    }
+
     private static FloatType of(float min, float max) {
         if (!(min <= max)) return FloatType.ALL;
         return FloatType.range(min, max);

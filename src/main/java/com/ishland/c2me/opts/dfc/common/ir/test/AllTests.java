@@ -13,6 +13,7 @@ public final class AllTests {
                 .register(DoubleUtilTest.class)
                 .register(FloatUtilTest.class)
                 .register(NodeTypeComputationTest.class)
+                .register(LerpTypeComputationTest.class)
                 .register(CanonicalizerTest.class)
                 // LoopRotation is not working yet; re-enable its suite once repaired.
                 .register(GraphVerifierTest.class)

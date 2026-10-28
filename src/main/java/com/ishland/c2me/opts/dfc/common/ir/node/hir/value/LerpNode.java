@@ -7,6 +7,7 @@ import com.ishland.c2me.opts.dfc.common.ir.graph.IrGraph;
 import com.ishland.c2me.opts.dfc.common.ir.graph.value.NodeState;
 import com.ishland.c2me.opts.dfc.common.ir.node.IrNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.hir.HIRNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.mir.value.constant.FloatConstantNode;
 import com.ishland.c2me.opts.dfc.common.ir.phase.scalar.Canonicalizer;
 import com.ishland.c2me.opts.dfc.common.ir.type.IrType;
 import com.ishland.c2me.opts.dfc.common.ir.type.mir.FloatType;
@@ -54,11 +55,17 @@ public enum LerpNode implements HIRNode {
         final var alpha = (FloatType) TypeUtil.getValueType(graph, IrNode.data(graph, id, 0));
         final var start = (FloatType) TypeUtil.getValueType(graph, IrNode.data(graph, id, 1));
         final var end = (FloatType) TypeUtil.getValueType(graph, IrNode.data(graph, id, 2));
-        return FloatUtil.add(start, FloatUtil.mul(alpha, FloatUtil.sub(end, start)));
+        return FloatUtil.lerp(alpha, start, end);
     }
 
     @Override
     public boolean optimize(IrGraph graph, int id, Canonicalizer canonicalizer, GraphContext ctx) {
+        final int start = IrNode.data(graph, id, 1);
+        final int end = IrNode.data(graph, id, 2);
+        if (sameValue(graph, start, end) && canCollapseEqualEndpoints(graph, id, start, ctx)) {
+            IrNode.transferDownstream(graph.getValue(), id, start, canonicalizer);
+            return true;
+        }
         if (!exact) {
             return false;
         }
@@ -68,6 +75,33 @@ public enum LerpNode implements HIRNode {
         }
         graph.replaceNode(id, new NodeState(LERP, graph.get(id).type()));
         return true;
+    }
+
+    private static boolean sameValue(IrGraph graph, int first, int second) {
+        if (first == second) return true;
+        return graph.getNode(first) instanceof FloatConstantNode(float constant)
+                && graph.getNode(second) instanceof FloatConstantNode(float constant1)
+                && Float.floatToIntBits(constant) == Float.floatToIntBits(constant1);
+    }
+
+    private boolean canCollapseEqualEndpoints(IrGraph graph, int id, int start, GraphContext ctx) {
+        if (ctx.isFeatureEnabled(CompileFeature.UNSAFE_MATH)) return true;
+        if (!(TypeUtil.getValueType(graph, IrNode.data(graph, id, 0)) instanceof FloatType alpha)
+                || !alpha.isDetermined()) {
+            return false;
+        }
+        if (exact && alpha.min() == 1.0f && alpha.max() == 1.0f) return true;
+        if (!Float.isFinite(alpha.min()) || !Float.isFinite(alpha.max())) return false;
+        if (!(TypeUtil.getValueType(graph, start) instanceof FloatType value)
+                || !value.isDetermined()
+                || !Float.isFinite(value.min()) || !Float.isFinite(value.max())) {
+            return false;
+        }
+        // Equal finite endpoints subtract to +0. A possible -0 endpoint needs
+        // a negative alpha to keep the product, and thus the final sum, negative zero.
+        if (value.min() > 0.0f || value.max() < 0.0f || alpha.max() < 0.0f) return true;
+        return graph.getNode(start) instanceof FloatConstantNode constant
+                && Float.floatToRawIntBits(constant.constant()) == 0;
     }
 
     /// Whether the alpha range cannot rule out `1.0F`.
