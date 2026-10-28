@@ -4,6 +4,8 @@ import com.ishland.c2me.opts.dfc.common.ir.GraphContext;
 import com.ishland.c2me.opts.dfc.common.ir.graph.GraphVerifier;
 import com.ishland.c2me.opts.dfc.common.ir.graph.IrGraph;
 import com.ishland.c2me.opts.dfc.common.ir.node.hir.kernel.KernelArgumentNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.hir.group.GroupNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.hir.volume.DensityVolumeNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.hir.kernel.KernelInvokeNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.hir.kernel.KernelNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.hir.kernel.KernelRootNode;
@@ -30,9 +32,18 @@ public class HirGraphTest {
     private record Body(int descriptor, int argument, int root) {
     }
 
+    private static int descriptor(IrGraph graph, KernelNode node) {
+        final int group = graph.addNode(GroupNode.TAG);
+        final int volume = graph.addNode(DensityVolumeNode.UNKNOWN);
+        graph.getMemory().appendEdge(group, volume);
+        final int descriptor = graph.addNode(node);
+        graph.getMemory().appendEdge(volume, descriptor);
+        return descriptor;
+    }
+
     private static Body body(GraphContext ctx, String name) {
         final IrGraph graph = ctx.getIrGraph();
-        final int descriptor = graph.addNode(new KernelNode(name));
+        final int descriptor = descriptor(graph, new KernelNode(name));
         final int argument = graph.addNode(new KernelArgumentNode("x", IntegerType.range(1, 10)));
         graph.getMemory().appendEdge(descriptor, argument);
         return new Body(descriptor, argument, root(ctx, descriptor, argument));
@@ -202,7 +213,7 @@ public class HirGraphTest {
         body(ctx, "sample");
         final KernelNode foreign = new KernelNode("foreign", IntegerType.BOT,
                 new ForeignKernelStamp(ForeignKernelStamp.Kind.C_FUNCTION, "external", List.of(), List.of()));
-        final int descriptor = graph.addNode(foreign);
+        final int descriptor = descriptor(graph, foreign);
         GraphVerifier.verify(ctx, PhaseStage.HIR);
         Assert.assertSame(IntegerType.BOT, foreign.compute(graph, descriptor, ctx), "Foreign type is declared");
         root(ctx, descriptor, graph.addNode(new IntConstantNode(7)));
@@ -213,9 +224,9 @@ public class HirGraphTest {
         final GraphContext ctx = new GraphContext();
         final IrGraph graph = ctx.getIrGraph();
         // Allocate callers first so propagation requires repeated descriptor rounds.
-        final int outer = graph.addNode(new KernelNode("outer"));
-        final int middle = graph.addNode(new KernelNode("middle"));
-        final int leaf = graph.addNode(new KernelNode("leaf"));
+        final int outer = descriptor(graph, new KernelNode("outer"));
+        final int middle = descriptor(graph, new KernelNode("middle"));
+        final int leaf = descriptor(graph, new KernelNode("leaf"));
         final int seven = graph.addNode(new IntConstantNode(7));
         final int packed = volume(graph, seven);
         final int middleCall = invoke(graph, leaf, packed);

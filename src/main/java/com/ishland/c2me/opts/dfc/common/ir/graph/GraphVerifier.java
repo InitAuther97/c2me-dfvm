@@ -5,6 +5,10 @@ import com.ishland.c2me.opts.dfc.common.ir.LongUtil;
 import com.ishland.c2me.opts.dfc.common.ir.graph.cfg.CFGAccess;
 import com.ishland.c2me.opts.dfc.common.ir.node.IrNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.hir.HIRNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.hir.MarkerHIRNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.hir.group.GroupNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.hir.volume.DensityVolumeNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.hir.volume.VolumeNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.hir.kernel.KernelArgumentNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.hir.kernel.KernelRootNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.hir.kernel.KernelNode;
@@ -236,7 +240,8 @@ public final class GraphVerifier {
             final IrNode node = graph.getNode(id);
             check(!(node instanceof TreeIRNode),
                     "HIR graph must not contain tree node %s at %d", name(graph, id), id);
-            if (node instanceof ProgramNode || node instanceof ConstantPoolNode || node instanceof KernelNode) {
+            if (node instanceof ProgramNode || node instanceof ConstantPoolNode || node instanceof KernelNode
+                    || node instanceof MarkerHIRNode) {
                 check(graph.getValue().getUsages(id).isEmpty(),
                         "HIR structural node %d (%s) must not be consumed as a value", id, name(graph, id));
             }
@@ -262,6 +267,9 @@ public final class GraphVerifier {
             } else {
                 check(control.getOperands(id).isEmpty() && control.getUsages(id).isEmpty(),
                         "HIR body node %d (%s) must not have control edges", id, name(graph, id));
+            }
+            if (node instanceof MarkerHIRNode) {
+                verifySamplingMetadata(graph, id, node);
             }
             if (node instanceof KernelArgumentNode) {
                 final int owner = kernelOwner(graph, id);
@@ -292,6 +300,9 @@ public final class GraphVerifier {
     private static void verifyDescriptor(IrGraph graph, int id, KernelNode descriptor) {
         check(graph.getValue().getOperands(id).isEmpty(),
                 "KernelNode %d must not take its body as a value operand", id);
+        final IntList memory = graph.getMemory().getOperands(id);
+        check(memory.size() == 2 && graph.getNode(memory.getInt(1)) instanceof VolumeNode,
+                "KernelNode %d must consume [constantPool, volume] as memory operands, got %s", id, memory);
         int roots = 0;
         for (int usage : graph.getMemory().getUsages(id)) {
             if (graph.getNode(usage) instanceof KernelRootNode) roots++;
@@ -299,6 +310,23 @@ public final class GraphVerifier {
         check(roots == (descriptor.isForeign() ? 0 : 1),
                 "KernelNode %d (%s) must own %d body roots, got %d",
                 id, descriptor.name(), descriptor.isForeign() ? 0 : 1, roots);
+    }
+
+    /// Every symbolic domain traces through transformations to a distinct group.
+    /// Acyclicity is checked separately by verifyHirDag.
+    private static void verifySamplingMetadata(IrGraph graph, int id, IrNode node) {
+        check(graph.getValue().getOperands(id).isEmpty(),
+                "HIR sampling metadata %d (%s) must not consume values", id, name(graph, id));
+        final IntList memory = graph.getMemory().getOperands(id);
+        if (node instanceof GroupNode) {
+            check(memory.isEmpty(), "GroupNode %d must not have memory operands, got %s", id, memory);
+        } else if (node instanceof DensityVolumeNode) {
+            check(memory.size() == 1 && graph.getNode(memory.getInt(0)) instanceof GroupNode,
+                    "DensityVolumeNode %d must consume exactly one GroupNode, got %s", id, memory);
+        } else if (node instanceof VolumeNode) {
+            check(memory.size() == 1 && graph.getNode(memory.getInt(0)) instanceof VolumeNode,
+                    "Volume transformation %d must consume exactly one VolumeNode, got %s", id, memory);
+        }
     }
 
     /// Marker and metadata dependencies must not introduce cycles either.
@@ -337,7 +365,7 @@ public final class GraphVerifier {
             visited.set(id);
             final IrNode node = graph.getNode(id);
             if (node instanceof KernelNode || node instanceof ConstantPoolNode) continue;
-            check(!(node instanceof ProgramNode || node instanceof KernelRootNode),
+            check(!(node instanceof ProgramNode || node instanceof KernelRootNode || node instanceof MarkerHIRNode),
                     "HIR body root %d consumes structural node %d as a value or metadata", root, id);
             if (node instanceof KernelArgumentNode) {
                 check(kernelOwner(graph, id) == owner,

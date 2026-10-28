@@ -3,7 +3,7 @@ package com.ishland.c2me.opts.dfc.common.ir;
 import com.ishland.c2me.opts.dfc.common.ir.graph.IrGraph;
 import com.ishland.c2me.opts.dfc.common.ir.node.tree.RootNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.tree.TreeIRNode;
-import com.ishland.c2me.opts.dfc.common.ir.node.tree.group.GroupTagTree;
+import com.ishland.c2me.opts.dfc.common.ir.node.hir.group.GroupNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.tree.group.IdentifierTagTree;
 import com.ishland.c2me.opts.dfc.common.ir.node.tree.mirror.BinaryOperationTree;
 import com.ishland.c2me.opts.dfc.common.ir.node.tree.mirror.BlendDensityInputTree;
@@ -28,12 +28,12 @@ import com.ishland.c2me.opts.dfc.common.ir.node.tree.mirror.RoundingTree;
 import com.ishland.c2me.opts.dfc.common.ir.node.tree.mirror.SliceTree;
 import com.ishland.c2me.opts.dfc.common.ir.node.tree.mirror.SplineTree;
 import com.ishland.c2me.opts.dfc.common.ir.node.tree.mirror.UnaryOperationTree;
-import com.ishland.c2me.opts.dfc.common.ir.node.tree.volume.DensityVolumeNode;
-import com.ishland.c2me.opts.dfc.common.ir.node.tree.volume.FTPTransformationTree;
-import com.ishland.c2me.opts.dfc.common.ir.node.tree.volume.SITransformationTree;
+import com.ishland.c2me.opts.dfc.common.ir.node.hir.volume.DensityVolumeNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.hir.volume.FTPTransformationNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.hir.volume.SITransformationNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.hir.volume.VolumeUtil;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import net.minecraft.util.Identifier;
-import net.minecraft.util.math.Direction;
 import net.minecraft.util.math.noise.BlendedNoiseSampler;
 import net.minecraft.world.gen.densityfunction.BinaryOperationDensityFunction;
 import net.minecraft.world.gen.densityfunction.BlendDensityDensityFunction;
@@ -65,13 +65,13 @@ import java.util.Map;
 /// Lowers grouped vanilla {@link DensityFunction} trees into a single
 /// tree-stage graph.
 ///
-/// Every group gets one {@link GroupTagTree} and one base
+/// Every group gets one {@link GroupNode} and one base
 /// {@link DensityVolumeNode} consuming it through a memory edge. Every
 /// mapped node consumes its current volume node through a memory edge, so
 /// value numbering is automatically scoped to the sampling volume. Slice and
-/// Interpolated start an {@link SITransformationTree} for their input;
+/// Interpolated start an {@link SITransformationNode} for their input;
 /// FindTopSurface tags its density input with an
-/// {@link FTPTransformationTree}.
+/// {@link FTPTransformationNode}.
 ///
 /// Each input root additionally consumes an {@link IdentifierTagTree}
 /// carrying its caller-supplied {@link Identifier}; roots split off at a
@@ -101,7 +101,7 @@ public class DFToTree {
     /// Creates one group node, one base volume and one root per input; each
     /// input root consumes `[function, group, identifier]` as value operands.
     private void addGroup(Map<Identifier, DensityFunction> functions) {
-        final int group = graph.addNode(GroupTagTree.TAG);
+        final int group = graph.addNode(GroupNode.TAG);
         final int volume = graph.addNode(DensityVolumeNode.UNKNOWN);
         graph.getMemory().appendEdge(group, volume);
         for (final Map.Entry<Identifier, DensityFunction> entry : functions.entrySet()) {
@@ -176,12 +176,12 @@ public class DFToTree {
                             mapFunction(lerp.first(), volume),
                             mapFunction(lerp.second(), volume));
             case InterpolatedDensityFunction interpolated -> {
-                final int innerVolume = cellifyVolume(volume, interpolated.cellSizeXz(), interpolated.cellSizeY());
+                final int innerVolume = VolumeUtil.interpolate(graph, volume, interpolated.cellSizeXz(), interpolated.cellSizeY());
                 yield add(volume, new InterpolatedTree(interpolated.cellSizeXz(), interpolated.cellSizeY()),
                         mapFunction(interpolated.input(), innerVolume));
             }
             case SliceDensityFunction slice -> {
-                final int innerVolume = sliceVolume(volume, slice.axis(), slice.coordinate());
+                final int innerVolume = VolumeUtil.slice(graph, volume, slice.axis(), slice.coordinate());
                 yield add(volume, new SliceTree(slice.axis(), slice.coordinate()),
                         mapFunction(slice.input(), innerVolume));
             }
@@ -189,7 +189,7 @@ public class DFToTree {
                 // Only the searched density lives in the dynamic column
                 // volume; the upper bound is sampled per input of the
                 // transformation in the enclosing volume.
-                final int densityVolume = findTopSurfaceVolume(volume);
+                final int densityVolume = VolumeUtil.findTopSurface(graph, volume);
                 yield add(volume, new FindTopSurfaceTree(findTopSurface.lowerBound(), findTopSurface.cellHeight()),
                         mapFunction(findTopSurface.density(), densityVolume),
                         mapFunction(findTopSurface.upperBound(), volume));
@@ -214,85 +214,6 @@ public class DFToTree {
             default -> throw new UnsupportedOperationException(
                     "Unsupported density function type: " + function.getClass().getName());
         };
-    }
-
-    /// Applies a slice transform to the current volume. The resulting
-    /// transformation always points at the original input volume node.
-    private int sliceVolume(int volume, Direction.Axis axis, int coordinate) {
-        return switch (graph.getNode(volume)) {
-            case DensityVolumeNode base ->
-                    addVolume(volume, fixedAxis(baseSIT(base), axis, coordinate));
-            case SITransformationTree sit ->
-                    addVolume(baseOf(volume), fixedAxis(sit, axis, coordinate));
-            case FTPTransformationTree ignored ->
-                    addVolume(volume, fixedAxis(SITransformationTree.UNKNOWN, axis, coordinate));
-            default -> throw new IllegalStateException("Not a volume node: " + graph.getNode(volume));
-        };
-    }
-
-    /// Applies an interpolation transform to the current volume. The
-    /// resulting transformation always points at the original input volume
-    /// node.
-    private int cellifyVolume(int volume, int cellSizeXz, int cellSizeY) {
-        return switch (graph.getNode(volume)) {
-            case DensityVolumeNode base ->
-                    addVolume(volume, cellify(baseSIT(base), cellSizeXz, cellSizeY));
-            case SITransformationTree sit ->
-                    addVolume(baseOf(volume), cellify(sit, cellSizeXz, cellSizeY));
-            case FTPTransformationTree ignored ->
-                    addVolume(volume, cellify(SITransformationTree.UNKNOWN, cellSizeXz, cellSizeY));
-            default -> throw new IllegalStateException("Not a volume node: " + graph.getNode(volume));
-        };
-    }
-
-    private int findTopSurfaceVolume(int volume) {
-        final int id = graph.addNode(FTPTransformationTree.INSTANCE);
-        graph.getMemory().appendEdge(volume, id);
-        return id;
-    }
-
-    private int addVolume(int base, SITransformationTree sit) {
-        final int id = graph.addNode(sit);
-        graph.getMemory().appendEdge(base, id);
-        return id;
-    }
-
-    /// The original input volume node a transformation was applied to.
-    private int baseOf(int transformation) {
-        return graph.getMemory().getOperands(transformation).getInt(0);
-    }
-
-    private static SITransformationTree baseSIT(DensityVolumeNode base) {
-        return new SITransformationTree(
-                SITransformationTree.Axis.range(base.sizeX(), base.stepX()),
-                SITransformationTree.Axis.range(base.sizeY(), base.stepY()),
-                SITransformationTree.Axis.range(base.sizeZ(), base.stepZ()));
-    }
-
-    private static SITransformationTree fixedAxis(SITransformationTree sit, Direction.Axis axis, int coordinate) {
-        final SITransformationTree.Axis fixed = SITransformationTree.Axis.fixed(coordinate);
-        return switch (axis) {
-            case X -> new SITransformationTree(fixed, sit.y(), sit.z());
-            case Y -> new SITransformationTree(sit.x(), fixed, sit.z());
-            case Z -> new SITransformationTree(sit.x(), sit.y(), fixed);
-        };
-    }
-
-    private static SITransformationTree cellify(SITransformationTree sit, int cellSizeXz, int cellSizeY) {
-        return new SITransformationTree(
-                cellify(sit.x(), cellSizeXz),
-                cellify(sit.y(), cellSizeY),
-                cellify(sit.z(), cellSizeXz));
-    }
-
-    private static SITransformationTree.Axis cellify(SITransformationTree.Axis axis, int cellSize) {
-        if (axis.fixed()) {
-            // Interpolation samples the cell corners around the fixed
-            // coordinate; keep that coordinate as the cell anchor so
-            // different fixed coordinates stay distinct.
-            return new SITransformationTree.Axis(false, axis.value(), 2, cellSize);
-        }
-        return SITransformationTree.Axis.range(-1, cellSize);
     }
 
     private int add(int volume, TreeIRNode node, int... valueOperands) {

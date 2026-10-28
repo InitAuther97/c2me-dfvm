@@ -4,7 +4,7 @@ import com.ishland.c2me.opts.dfc.common.ir.GraphContext;
 import com.ishland.c2me.opts.dfc.common.ir.graph.EdgeAccessor;
 import com.ishland.c2me.opts.dfc.common.ir.graph.IrGraph;
 import com.ishland.c2me.opts.dfc.common.ir.node.tree.MarkerTreeNode;
-import com.ishland.c2me.opts.dfc.common.ir.node.tree.group.GroupTagTree;
+import com.ishland.c2me.opts.dfc.common.ir.node.hir.group.GroupNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.tree.mirror.CacheTree;
 import com.ishland.c2me.opts.dfc.common.ir.phase.TreePhase;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
@@ -34,7 +34,7 @@ public class CacheEliminationPhase implements TreePhase {
     public void run() {
         final IrGraph graph = ctx.getIrGraph();
         for (int id = 0; id < graph.nodes().size(); id++) {
-            if (graph.get(id) != null && graph.getNode(id) instanceof GroupTagTree) {
+            if (graph.get(id) != null && graph.getNode(id) instanceof GroupNode) {
                 eliminateGroupCaches(graph, id);
             }
         }
@@ -75,7 +75,7 @@ public class CacheEliminationPhase implements TreePhase {
         for (int i = 0; i < operands.size(); i++) {
             final int operand = operands.getInt(i);
             final var state = graph.get(operand);
-            if (state != null && !(state.node() instanceof MarkerTreeNode)) {
+            if (state != null && !(state.node() instanceof MarkerTreeNode || state.node() instanceof GroupNode)) {
                 return operand;
             }
         }

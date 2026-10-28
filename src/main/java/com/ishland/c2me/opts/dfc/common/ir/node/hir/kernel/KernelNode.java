@@ -22,9 +22,14 @@ import java.util.Objects;
 /// its {@link KernelRootNode} (driven by
 /// {@link com.ishland.c2me.opts.dfc.common.ir.phase.hir.HIRCanonicalizationPhase}).
 /// That dependency is a lookup, not an edge, so the descriptor stays a root
-/// node and no loop forms through the kernel body. Roots and arguments take
+/// node of the body and no loop forms through the kernel body. Roots and arguments take
 /// memory edges from this descriptor purely as ownership markers. Invocations
 /// take a memory edge from it to mark their callee.
+///
+/// Memory operands are [constantPool, volume]. The symbolic volume can be a
+/// base domain or a chain of transformations rooted in a GroupNode. Including
+/// that dependency in GVN prevents merging descriptors across distinct groups
+/// or sampling contexts; it is not an executable memory-state dependency.
 ///
 /// A foreign kernel (non-null {@code foreign}) has no implementation in the
 /// graph: it owns no {@link KernelRootNode}, and its declared

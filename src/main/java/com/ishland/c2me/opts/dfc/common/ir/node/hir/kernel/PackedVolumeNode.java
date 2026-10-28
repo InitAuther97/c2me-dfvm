@@ -23,9 +23,9 @@ import com.ishland.flowsched.util.Assertions;
 /// body is written purely in terms of its {@link KernelArgumentNode}s. It is
 /// only consumed when kernel invocations are lowered.
 ///
-/// TODO: wire this metadata into invocation lowering. The kernel's input
-/// volume information is not represented yet, so call sites currently record
-/// only the degenerate per-item volume.
+/// The descriptor's symbolic input domain is represented separately by a
+/// VolumeNode. Call sites currently record only the degenerate per-item volume.
+/// TODO: wire this metadata and the symbolic domain into invocation lowering.
 public enum PackedVolumeNode implements StampNode {
 
     INSTANCE;

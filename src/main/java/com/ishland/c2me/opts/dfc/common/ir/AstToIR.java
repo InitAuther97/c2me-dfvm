@@ -6,6 +6,9 @@ import com.ishland.c2me.opts.dfc.common.ir.node.hir.kernel.FindFirstNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.hir.kernel.KernelArgumentNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.hir.kernel.KernelRootNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.hir.kernel.KernelNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.hir.group.GroupNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.hir.volume.DensityVolumeNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.hir.volume.VolumeUtil;
 import com.ishland.c2me.opts.dfc.common.ir.node.hir.kernel.KernelInvokeNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.hir.kernel.PackedVolumeNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.hir.value.LerpNode;
@@ -71,7 +74,8 @@ import java.util.Map;
 /// argument nodes. Arguments unused by a kernel are left for dead argument
 /// elimination to prune. Each kernel is a pure value DAG attached to a
 /// KernelRootNode; the root kernel is the first root under START. Executable
-/// control flow is introduced only during MIR lowering.
+/// control flow is introduced only during MIR lowering. Descriptors consume their
+/// symbolic sampling volume, derived from a non-numbered group marker.
 ///
 /// Kernels may also declare custom formats: a predicate kernel used by
 /// {@link FindFirstNode} takes `(x, y, z)` and returns whether the density is
@@ -97,7 +101,7 @@ public class AstToIR {
     /// The work-item coordinate of the kernel being mapped: coordinate-
     /// consuming types read these nodes instead of assuming an argument
     /// layout, so kernels can declare custom formats.
-    private record Coordinates(int x, int y, int z) {
+    private record Coordinates(int x, int y, int z, int volume) {
     }
 
     private record Kernel(int descriptor, int root) {
@@ -105,7 +109,10 @@ public class AstToIR {
 
     public static GraphContext lower(DensityFunction function) {
         final AstToIR lowering = new AstToIR();
-        lowering.buildKernel(function);
+        final int group = lowering.graph.addNode(GroupNode.TAG);
+        final int volume = lowering.graph.addNode(DensityVolumeNode.UNKNOWN);
+        lowering.graph.getMemory().appendEdge(group, volume);
+        lowering.buildKernel(function, volume);
         return lowering.context;
     }
 
@@ -118,14 +125,14 @@ public class AstToIR {
 
     /// Builds a standard density kernel with the volume format and returns
     /// the callee's descriptor id.
-    private int buildKernel(DensityFunction function) {
-        final Kernel kernel = createKernel("df/" + this.nextKernelId++ + ": " + function.getClass().getSimpleName());
+    private int buildKernel(DensityFunction function, int volume) {
+        final Kernel kernel = createKernel("df/" + this.nextKernelId++ + ": " + function.getClass().getSimpleName(), volume);
         final int[] arguments = new int[ARGUMENT_NAMES.length];
         for (int i = 0; i < arguments.length; i++) {
             arguments[i] = addArgument(kernel, ARGUMENT_NAMES[i]);
         }
         final int value = mapFunction(function, new IdentityHashMap<>(),
-                new Coordinates(arguments[ARG_MIN_X], arguments[ARG_MIN_Y], arguments[ARG_MIN_Z]));
+                new Coordinates(arguments[ARG_MIN_X], arguments[ARG_MIN_Y], arguments[ARG_MIN_Z], volume));
         finishKernel(kernel, value);
         return kernel.descriptor();
     }
@@ -134,12 +141,12 @@ public class AstToIR {
     /// returning whether it is positive. The callee format is `(x, y, z)`, so
     /// a caller can feed it captured coordinates through the argument
     /// permutation of a {@link FindFirstNode}.
-    private int buildPredicateKernel(DensityFunction function) {
-        final Kernel kernel = createKernel("predicate/" + this.nextKernelId++ + ": " + function.getClass().getSimpleName());
+    private int buildPredicateKernel(DensityFunction function, int volume) {
+        final Kernel kernel = createKernel("predicate/" + this.nextKernelId++ + ": " + function.getClass().getSimpleName(), volume);
         final int x = addArgument(kernel, "x");
         final int y = addArgument(kernel, "y");
         final int z = addArgument(kernel, "z");
-        final int value = mapFunction(function, new IdentityHashMap<>(), new Coordinates(x, y, z));
+        final int value = mapFunction(function, new IdentityHashMap<>(), new Coordinates(x, y, z, volume));
         final int predicate = addNode(TestFPNode.MIN_INCLUSIVE_MAX_INCLUSIVE,
                 addNode(FPConvertNode.F2D, value),
                 addNode(new DoubleConstantNode(Math.nextUp(0.0))),
@@ -148,8 +155,9 @@ public class AstToIR {
         return kernel.descriptor();
     }
 
-    private Kernel createKernel(String name) {
+    private Kernel createKernel(String name, int volume) {
         final int descriptor = graph.addNode(new KernelNode(name));
+        graph.getMemory().appendEdge(volume, descriptor);
         final int root = graph.addNode(KernelRootNode.ROOT);
         graph.getMemory().appendEdge(descriptor, root);
         graph.getControl().appendEdge(context.getProgramStart(), root);
@@ -290,7 +298,8 @@ public class AstToIR {
     /// A slice substitutes one axis of the lane's coordinate and samples the
     /// input there: a single per-item invocation, with no combine step.
     private int mapSlice(SliceDensityFunction slice, Coordinates coordinates) {
-        final int callee = buildKernel(slice.input());
+        final int callee = buildKernel(slice.input(),
+                VolumeUtil.slice(graph, coordinates.volume(), slice.axis(), slice.coordinate()));
         final int one = addNode(new IntConstantNode(1));
         final int coordinate = addNode(new IntConstantNode(slice.coordinate()));
         final int x = slice.axis() == Direction.Axis.X ? coordinate : coordinates.x();
@@ -305,7 +314,8 @@ public class AstToIR {
     /// derived from the lane's coordinate); batching these invocations into a
     /// single volume fill is the invocation lowering's job.
     private int mapInterpolated(InterpolatedDensityFunction interpolated, Coordinates coordinates) {
-        final int callee = buildKernel(interpolated.input());
+        final int callee = buildKernel(interpolated.input(),
+                VolumeUtil.interpolate(graph, coordinates.volume(), interpolated.cellSizeXz(), interpolated.cellSizeY()));
         final int cellSizeXzNode = addNode(new IntConstantNode(interpolated.cellSizeXz()));
         final int cellSizeYNode = addNode(new IntConstantNode(interpolated.cellSizeY()));
         final int one = addNode(new IntConstantNode(1));
@@ -354,8 +364,10 @@ public class AstToIR {
     /// vanilla. The predicate kernel receives the captured coordinates
     /// through the argument permutation (x, y, z).
     private int mapFindTopSurface(FindTopSurfaceDensityFunction function, Coordinates coordinates) {
-        final int predicate = buildPredicateKernel(function.density());
-        final int upperCallee = buildKernel(function.upperBound());
+        final int predicate = buildPredicateKernel(function.density(),
+                VolumeUtil.findTopSurface(graph, coordinates.volume()));
+        final int upperCallee = buildKernel(function.upperBound(),
+                VolumeUtil.slice(graph, coordinates.volume(), Direction.Axis.Y, 0));
         final int cellHeight = function.cellHeight();
         final int one = addNode(new IntConstantNode(1));
         final int upperBound = invokeAt(upperCallee, coordinates.x(),

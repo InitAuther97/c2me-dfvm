@@ -3,6 +3,8 @@ package com.ishland.c2me.opts.dfc.common.ir.test;
 import com.ishland.c2me.opts.dfc.common.ir.GraphContext;
 import com.ishland.c2me.opts.dfc.common.ir.graph.IrGraph;
 import com.ishland.c2me.opts.dfc.common.ir.node.hir.kernel.KernelArgumentNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.hir.group.GroupNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.hir.volume.DensityVolumeNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.hir.kernel.KernelNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.hir.kernel.KernelRootNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.hir.value.LerpNode;
@@ -141,7 +143,11 @@ public class LerpTypeComputationTest {
     private static FloatType computeType(LerpNode node, FloatType alpha, FloatType start, FloatType end) {
         final GraphContext ctx = new GraphContext();
         final IrGraph graph = ctx.getIrGraph();
+        final int group = graph.addNode(GroupNode.TAG);
+        final int volume = graph.addNode(DensityVolumeNode.UNKNOWN);
+        graph.getMemory().appendEdge(group, volume);
         final int descriptor = graph.addNode(new KernelNode("lerpType"));
+        graph.getMemory().appendEdge(volume, descriptor);
         final int lerp = graph.addNode(node);
         final FloatType[] types = {alpha, start, end};
         for (int i = 0; i < types.length; i++) {
