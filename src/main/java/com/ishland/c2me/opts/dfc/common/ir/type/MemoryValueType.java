@@ -25,12 +25,10 @@ public final class MemoryValueType extends IrType {
         }
     }
 
-    @Override
     public MemoryType getMemoryType() {
         return memoryType;
     }
 
-    @Override
     public IrType getValueType() {
         return valueType;
     }

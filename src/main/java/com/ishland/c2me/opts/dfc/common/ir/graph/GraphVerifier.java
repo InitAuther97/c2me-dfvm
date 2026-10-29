@@ -5,7 +5,7 @@ import com.ishland.c2me.opts.dfc.common.ir.LongUtil;
 import com.ishland.c2me.opts.dfc.common.ir.graph.cfg.CFGAccess;
 import com.ishland.c2me.opts.dfc.common.ir.node.IrNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.hir.HIRNode;
-import com.ishland.c2me.opts.dfc.common.ir.node.hir.MarkerHIRNode;
+import com.ishland.c2me.opts.dfc.common.ir.node.hir.CacheNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.hir.group.GroupNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.hir.volume.DensityVolumeNode;
 import com.ishland.c2me.opts.dfc.common.ir.node.hir.volume.VolumeNode;
@@ -241,7 +241,7 @@ public final class GraphVerifier {
             check(!(node instanceof TreeIRNode),
                     "HIR graph must not contain tree node %s at %d", name(graph, id), id);
             if (node instanceof ProgramNode || node instanceof ConstantPoolNode || node instanceof KernelNode
-                    || node instanceof MarkerHIRNode) {
+                    || node instanceof GroupNode || node instanceof VolumeNode) {
                 check(graph.getValue().getUsages(id).isEmpty(),
                         "HIR structural node %d (%s) must not be consumed as a value", id, name(graph, id));
             }
@@ -268,8 +268,13 @@ public final class GraphVerifier {
                 check(control.getOperands(id).isEmpty() && control.getUsages(id).isEmpty(),
                         "HIR body node %d (%s) must not have control edges", id, name(graph, id));
             }
-            if (node instanceof MarkerHIRNode) {
+            if (node instanceof GroupNode || node instanceof VolumeNode) {
                 verifySamplingMetadata(graph, id, node);
+            } else if (node instanceof CacheNode) {
+                check(graph.getValue().getOperands(id).size() == 1,
+                        "CacheNode %d must consume exactly one input value", id);
+                check(graph.getMemory().getOperands(id).isEmpty() && graph.getMemory().getUsages(id).isEmpty(),
+                        "CacheNode %d is a value passthrough and must not have memory edges", id);
             }
             if (node instanceof KernelArgumentNode) {
                 final int owner = kernelOwner(graph, id);
@@ -365,7 +370,8 @@ public final class GraphVerifier {
             visited.set(id);
             final IrNode node = graph.getNode(id);
             if (node instanceof KernelNode || node instanceof ConstantPoolNode) continue;
-            check(!(node instanceof ProgramNode || node instanceof KernelRootNode || node instanceof MarkerHIRNode),
+            check(!(node instanceof ProgramNode || node instanceof KernelRootNode
+                            || node instanceof GroupNode || node instanceof VolumeNode),
                     "HIR body root %d consumes structural node %d as a value or metadata", root, id);
             if (node instanceof KernelArgumentNode) {
                 check(kernelOwner(graph, id) == owner,

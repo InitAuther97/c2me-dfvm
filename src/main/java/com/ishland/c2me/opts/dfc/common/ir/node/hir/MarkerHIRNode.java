@@ -8,8 +8,9 @@ import com.ishland.c2me.opts.dfc.common.ir.phase.scalar.Canonicalizer;
 import com.ishland.c2me.opts.dfc.common.ir.type.FormalType;
 import com.ishland.c2me.opts.dfc.common.ir.type.IrType;
 
-/// Structural metadata shared by tree construction and HIR. Marker edges
-/// describe sampling context, rather than values or executable memory effects.
+/// Non-executable HIR annotations. Sampling metadata describes context through
+/// memory edges; value markers may forward an input value and override compute.
+/// The defaults describe zero-cost metadata without executable memory effects.
 public interface MarkerHIRNode extends HIRNode {
 
     @Override
